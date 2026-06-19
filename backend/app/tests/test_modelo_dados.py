@@ -22,10 +22,14 @@ def test_schema_inicial_possui_tabelas_relacionamentos_e_restricoes():
         "fotos_hodometro",
         "localizacoes_gps",
         "fechamentos_mensais",
+        "password_reset_tokens",
+        "solicitacoes_cadastro",
     }.issubset(tabelas)
 
     colunas_veiculos = {coluna["name"] for coluna in inspector.get_columns("veiculos")}
-    assert {"tipo_disponibilidade", "usuario_responsavel_id", "unidade", "categoria", "ativo"}.issubset(colunas_veiculos)
+    assert {"marca", "tipo_disponibilidade", "usuario_responsavel_id", "unidade", "categoria", "ativo"}.issubset(
+        colunas_veiculos
+    )
 
     colunas_usuarios = {coluna["name"] for coluna in inspector.get_columns("usuarios")}
     assert {"cargo", "superior_id", "pode_aprovar"}.issubset(colunas_usuarios)
@@ -61,3 +65,20 @@ def test_schema_inicial_possui_tabelas_relacionamentos_e_restricoes():
 
     fks_fechamentos = inspector.get_foreign_keys("fechamentos_mensais")
     assert {fk["referred_table"] for fk in fks_fechamentos} == {"usuarios"}
+
+    colunas_tokens = {coluna["name"] for coluna in inspector.get_columns("password_reset_tokens")}
+    assert {"usuario_id", "token_hash", "expira_em", "usado_em"}.issubset(colunas_tokens)
+
+    colunas_solicitacoes = {coluna["name"] for coluna in inspector.get_columns("solicitacoes_cadastro")}
+    assert {
+        "nome",
+        "email",
+        "cargo",
+        "superior",
+        "veiculo_placa",
+        "veiculo_modelo",
+        "veiculo_marca",
+        "status",
+        "usuario_id",
+        "veiculo_id",
+    }.issubset(colunas_solicitacoes)

@@ -24,6 +24,7 @@ Autenticar o usuário com e-mail e senha.
 - Campo de senha.
 - Botão de entrar.
 - Link de recuperação de senha.
+- Link de solicitação de cadastro.
 
 ### Critérios De Aceite
 
@@ -31,8 +32,51 @@ Autenticar o usuário com e-mail e senha.
 - Exibe erro quando credenciais forem inválidas.
 - Mantém sessão segura quando o login for válido.
 - Oferece caminho para recuperação de acesso.
+- Oferece caminho para solicitação pública de cadastro.
 
-## 3. Tela Selecionar Carro
+## 3. Tela Recuperação De Senha
+
+### Objetivo
+
+Permitir que usuário receba link por e-mail para redefinir senha.
+
+### Elementos
+
+- Campo de e-mail.
+- Botão de enviar link.
+- Formulário de nova senha quando a tela for aberta com `reset_token`.
+
+### Critérios De Aceite
+
+- Bloqueia envio sem e-mail.
+- Resposta pública não informa se o e-mail existe.
+- Permite definir nova senha com token válido.
+- Exibe erro quando token estiver inválido ou expirado.
+
+## 4. Tela Solicitar Cadastro
+
+### Objetivo
+
+Registrar solicitação pública de novo usuário para análise do administrador.
+
+### Elementos
+
+- Nome.
+- E-mail.
+- Cargo.
+- Superior informado.
+- Placa, modelo e marca do veículo.
+- Observação opcional.
+- Botão de enviar solicitação.
+
+### Critérios De Aceite
+
+- Bloqueia envio sem dados obrigatórios.
+- Cria solicitação com status `pendente`.
+- Não cria usuário ativo automaticamente.
+- Permite voltar ao login.
+
+## 5. Tela Selecionar Carro
 
 ### Objetivo
 
@@ -52,7 +96,7 @@ Permitir que o usuário escolha o veículo antes de iniciar a viagem.
 - Prioriza o veículo de empresa do responsável usual, quando houver.
 - Salva o veículo selecionado na viagem.
 
-## 4. Tela Partida
+## 6. Tela Partida
 
 ### Objetivo
 
@@ -79,7 +123,7 @@ Registrar início da viagem com km inicial, foto do hodômetro e GPS.
 - Registra data e hora automaticamente.
 - Cria viagem com status `em_andamento`.
 
-## 5. Tela Viagem Em Andamento
+## 7. Tela Viagem Em Andamento
 
 ### Objetivo
 
@@ -98,7 +142,7 @@ Mostrar que a partida foi registrada e permitir que o usuário escolha entre sai
 - Permite retomar a chegada enquanto houver viagem `em_andamento` do usuário autenticado.
 - Mostra placa e modelo do veículo usado na viagem, não apenas o identificador interno.
 
-## 6. Tela Chegada
+## 8. Tela Chegada
 
 ### Objetivo
 
@@ -126,7 +170,7 @@ Registrar fim da viagem com km final, foto do hodômetro, GPS e rota utilizada.
 - Bloqueia envio sem rota utilizada.
 - Altera status para `concluida`, indicando viagem pronta para fechamento mensal.
 
-## 7. Tela Conclusão Da Viagem
+## 9. Tela Conclusão Da Viagem
 
 ### Objetivo
 
@@ -145,7 +189,7 @@ Confirmar para o usuário que o itinerário foi registrado e permitir sair do ap
 - Não substitui validações obrigatórias de km, foto, GPS e rota.
 - Permite encerrar a sessão pelo fluxo principal, além do botão de sair no topo do app.
 
-## 8. Tela Editar
+## 10. Tela Editar
 
 ### Objetivo
 
@@ -165,7 +209,7 @@ Permitir correções antes do fechamento mensal fechado.
 - Mantém validações de foto, GPS e km.
 - Registra data e usuário da alteração.
 
-## 9. Tela Fechamento Mensal
+## 11. Tela Fechamento Mensal
 
 ### Objetivo
 
@@ -190,7 +234,30 @@ Permitir que o superior consulte o consolidado mensal de um motorista individual
 - Fechamento mensal `fechado` registra responsável, data/hora, status e observação quando informada.
 - O fechamento mensal é feito por motorista individual, não por equipe inteira.
 
-## 10. Fluxo Principal Da Viagem
+## 12. Tela Cadastros
+
+### Objetivo
+
+Permitir que administrador aprove ou reprove solicitações públicas de cadastro.
+
+### Elementos
+
+- Lista de solicitações pendentes.
+- Dados do solicitante, cargo, superior informado e veículo.
+- Campo de senha temporária.
+- Seletores de perfil, superior técnico e tipo do veículo.
+- Controle de permissão de fechamento.
+- Campo de motivo para reprovação.
+- Botões de aprovar e reprovar.
+
+### Critérios De Aceite
+
+- Disponível somente para administrador.
+- Aprovação cria usuário ativo e veículo novo ou vinculado.
+- Reprovação exige motivo.
+- Solicitação processada não pode ser processada novamente.
+
+## 13. Fluxo Principal Da Viagem
 
 ```txt
 Login
@@ -204,4 +271,20 @@ Login
   -> Fechamento mensal por motorista
   -> Consolidado mensal aberto ou fechado
   -> Relatório mensal
+```
+
+## 14. Fluxos De Acesso
+
+```txt
+Login
+  -> Esqueci minha senha
+  -> Receber link por e-mail
+  -> Redefinir senha
+  -> Login
+
+Login
+  -> Solicitar cadastro
+  -> Solicitação pendente
+  -> Admin aprova ou reprova
+  -> Login com senha temporária quando aprovado
 ```

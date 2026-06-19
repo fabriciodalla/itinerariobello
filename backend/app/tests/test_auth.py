@@ -1,6 +1,15 @@
 import pytest
+from datetime import datetime, timedelta, timezone
+from uuid import uuid4
+from sqlalchemy import select
 
 from assertions import assert_unauthorized, assert_validation_error, json_body
+from app.core.security import hash_password
+from app.db.session import SessionLocal
+from app.models.enums import PerfilUsuario
+from app.models.password_reset_token import PasswordResetToken
+from app.models.usuario import Usuario
+from app.services.password_reset import hash_reset_token
 
 
 @pytest.mark.autenticacao
@@ -69,6 +78,35 @@ def test_recuperacao_de_senha_aceita_email_para_inicio_do_fluxo(api_client):
 
 @pytest.mark.autenticacao
 @pytest.mark.risco(peso=50, criticidade="alta", area="autenticacao", referencias=("RF-002", "RNF-002"))
+def test_recuperacao_de_senha_cria_token_para_usuario_ativo(api_client):
+    db = SessionLocal()
+    email = f"reset-token-{uuid4().hex}@bello.local"
+    usuario = Usuario(
+        nome="Usuario Reset Token",
+        email=email,
+        senha_hash=hash_password("senha-atual-teste"),
+        perfil=PerfilUsuario.motorista,
+    )
+    db.add(usuario)
+    db.commit()
+    try:
+        response = api_client.post("/auth/forgot-password", json={"email": email})
+
+        assert response.status_code == 202, response.text
+        token = db.scalar(select(PasswordResetToken).where(PasswordResetToken.usuario_id == usuario.id))
+        assert token is not None
+        assert token.usado_em is None
+    finally:
+        db.rollback()
+        persisted = db.get(Usuario, usuario.id)
+        if persisted is not None:
+            db.delete(persisted)
+            db.commit()
+        db.close()
+
+
+@pytest.mark.autenticacao
+@pytest.mark.risco(peso=50, criticidade="alta", area="autenticacao", referencias=("RF-002", "RNF-002"))
 def test_recuperacao_de_senha_sem_email_retorna_erro_de_validacao(api_client):
     response = api_client.post("/auth/forgot-password", json={})
 
@@ -84,3 +122,46 @@ def test_reset_de_senha_sem_token_retorna_erro_de_validacao(api_client):
     )
 
     assert_validation_error(response)
+
+
+@pytest.mark.autenticacao
+@pytest.mark.risco(peso=50, criticidade="alta", area="autenticacao", referencias=("RF-002", "RNF-001", "RNF-002"))
+def test_reset_de_senha_com_token_valido_altera_senha(api_client):
+    db = SessionLocal()
+    email = f"reset-senha-{uuid4().hex}@bello.local"
+    senha_antiga = "senha-antiga-teste"
+    senha_nova = "senha-nova-teste"
+    usuario = Usuario(
+        nome="Usuario Reset Senha",
+        email=email,
+        senha_hash=hash_password(senha_antiga),
+        perfil=PerfilUsuario.motorista,
+    )
+    db.add(usuario)
+    db.flush()
+    raw_token = f"token-{uuid4().hex}"
+    token = PasswordResetToken(
+        usuario_id=usuario.id,
+        token_hash=hash_reset_token(raw_token),
+        expira_em=datetime.now(timezone.utc) + timedelta(minutes=15),
+    )
+    db.add(token)
+    db.commit()
+    try:
+        response = api_client.post(
+            "/auth/reset-password",
+            json={"token": raw_token, "nova_senha": senha_nova},
+        )
+
+        assert response.status_code == 204, response.text
+        login_novo = api_client.post("/auth/login", json={"email": email, "senha": senha_nova})
+        assert login_novo.status_code == 200, login_novo.text
+        login_antigo = api_client.post("/auth/login", json={"email": email, "senha": senha_antiga})
+        assert_unauthorized(login_antigo)
+    finally:
+        db.rollback()
+        persisted = db.get(Usuario, usuario.id)
+        if persisted is not None:
+            db.delete(persisted)
+            db.commit()
+        db.close()

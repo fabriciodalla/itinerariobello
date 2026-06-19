@@ -23,6 +23,7 @@ def to_response(veiculo: Veiculo, usuario_id) -> VeiculoResponse:
         id=veiculo.id,
         placa=veiculo.placa,
         modelo=veiculo.modelo,
+        marca=veiculo.marca,
         unidade=veiculo.unidade,
         categoria=veiculo.categoria,
         tipo=veiculo.tipo,
@@ -71,6 +72,7 @@ def create_vehicle(
     veiculo = Veiculo(
         placa=placa,
         modelo=payload.modelo.strip(),
+        marca=payload.marca.strip() if payload.marca else None,
         unidade=payload.unidade.strip() if payload.unidade else None,
         categoria=payload.categoria.strip() if payload.categoria else None,
         tipo=payload.tipo,

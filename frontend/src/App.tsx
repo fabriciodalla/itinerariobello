@@ -9,18 +9,20 @@ import {
   RefreshCw,
   Route,
   ShieldCheck,
+  UserPlus,
 } from 'lucide-react'
 import { LoginScreen } from './screens/LoginScreen'
 import { TripScreen } from './screens/TripScreen'
 import { HistoryScreen } from './screens/HistoryScreen'
 import { MonthlyClosureScreen } from './screens/MonthlyClosureScreen'
+import { SignupRequestsScreen } from './screens/SignupRequestsScreen'
 import { ChangePasswordModal } from './components/ChangePasswordModal'
 import { InstallPromptButton } from './components/InstallPromptButton'
 import { StatusPill } from './components/StatusPill'
 import { ApiError, api } from './services/api'
-import type { Trip, User, Vehicle } from './types/domain'
+import type { SignupRequestPayload, Trip, User, Vehicle } from './types/domain'
 
-type AppView = 'viagem' | 'historico' | 'fechamento'
+type AppView = 'viagem' | 'historico' | 'fechamento' | 'cadastros'
 
 const TOKEN_STORAGE_KEY = 'bello.itinerario.token'
 
@@ -42,6 +44,7 @@ function App() {
     user && (user.pode_aprovar || user.perfil === 'analista' || user.perfil === 'admin'),
   )
   const canRegisterTrips = Boolean(user && user.perfil !== 'analista')
+  const canManageSignupRequests = user?.perfil === 'admin'
 
   const describeError = useCallback((error: unknown) => {
     if (error instanceof ApiError) {
@@ -99,6 +102,21 @@ function App() {
     }
   }
 
+  async function handleForgotPassword(email: string) {
+    setMessage('')
+    await api.forgotPassword(email)
+  }
+
+  async function handleResetPassword(resetToken: string, novaSenha: string) {
+    setMessage('')
+    await api.resetPassword(resetToken, novaSenha)
+  }
+
+  async function handleSignupRequest(payload: SignupRequestPayload) {
+    setMessage('')
+    await api.createSignupRequest(payload)
+  }
+
   const [showChangePassword, setShowChangePassword] = useState(false)
 
   function handleLogout() {
@@ -117,7 +135,16 @@ function App() {
   }
 
   if (!token || !user) {
-    return <LoginScreen loading={loading} message={message} onLogin={handleLogin} />
+    return (
+      <LoginScreen
+        loading={loading}
+        message={message}
+        onLogin={handleLogin}
+        onForgotPassword={handleForgotPassword}
+        onResetPassword={handleResetPassword}
+        onSignupRequest={handleSignupRequest}
+      />
+    )
   }
 
   return (
@@ -160,7 +187,10 @@ function App() {
 
       {message ? <div className="alert">{message}</div> : null}
 
-      <nav className={`bottom-nav ${canRegisterTrips ? '' : 'single'}`} aria-label="Navegacao principal">
+      <nav
+        className={`bottom-nav ${canRegisterTrips ? '' : 'single'} ${canManageSignupRequests ? 'admin' : ''}`}
+        aria-label="Navegacao principal"
+      >
         {canRegisterTrips ? (
           <>
             <button className={view === 'viagem' ? 'active' : ''} type="button" onClick={() => setView('viagem')}>
@@ -181,6 +211,16 @@ function App() {
           {canReviewClosures ? <ShieldCheck /> : <ClipboardCheck />}
           <span>Fechamento</span>
         </button>
+        {canManageSignupRequests ? (
+          <button
+            className={view === 'cadastros' ? 'active' : ''}
+            type="button"
+            onClick={() => setView('cadastros')}
+          >
+            <UserPlus />
+            <span>Cadastros</span>
+          </button>
+        ) : null}
       </nav>
 
       <section className="content-area">
@@ -202,6 +242,10 @@ function App() {
 
         {view === 'fechamento' ? (
           <MonthlyClosureScreen token={token} user={user} onMessage={setMessage} />
+        ) : null}
+
+        {view === 'cadastros' && canManageSignupRequests ? (
+          <SignupRequestsScreen token={token} onMessage={setMessage} />
         ) : null}
       </section>
 

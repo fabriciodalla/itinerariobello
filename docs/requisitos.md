@@ -13,7 +13,7 @@ O protótipo deve funcionar em servidor acessível pela internet para testes rea
 | Motorista/Coordenador | Fazer login, selecionar veículo, registrar partida, registrar chegada, editar viagem antes do fechamento fechado e visualizar próprias viagens |
 | Responsável pelo fechamento | Visualizar viagens e fechamentos mensais de motoristas subordinados, fechar o consolidado mensal individual e consultar relatórios da equipe. Deve ser coordenador ou cargo acima |
 | Analista | Consultar dados consolidados, gerar relatórios mensais e exportar informações |
-| Administrador | Cadastrar usuários, veículos, vínculos, perfis e permissões |
+| Administrador | Cadastrar usuários, veículos, vínculos, perfis, permissões e analisar solicitações de cadastro |
 
 Todos os usuários importados da planilha operacional devem poder registrar viagens. A permissão de fechamento não é dada automaticamente a supervisores; ela é definida pela flag técnica `pode_aprovar`, começando em coordenador e níveis superiores.
 
@@ -22,7 +22,7 @@ Todos os usuários importados da planilha operacional devem poder registrar viag
 | Código | Requisito | Critério de aceite |
 |---|---|---|
 | RF-001 | O usuário deve fazer login com e-mail e senha | Login válido gera sessão autenticada |
-| RF-002 | O usuário deve recuperar ou alterar senha esquecida | Usuário consegue iniciar fluxo de recuperação e definir nova senha |
+| RF-002 | O usuário deve recuperar ou alterar senha esquecida | Usuário recebe link por e-mail, usa token temporário e define nova senha |
 | RF-003 | O app deve manter sessão segura no celular | Usuário não precisa fazer login a cada abertura enquanto a sessão for válida |
 | RF-004 | O usuário deve selecionar um veículo antes da partida | Sistema permite veículo próprio do usuário ou veículo de empresa ativo, bloqueia veículo já usado em itinerário iniciado no dia e não permite iniciar viagem sem veículo |
 | RF-005 | O usuário deve registrar km inicial | Sistema salva km inicial com data e hora |
@@ -39,6 +39,7 @@ Todos os usuários importados da planilha operacional devem poder registrar viag
 | RF-016 | O sistema deve gerar relatório mensal | Relatório contém usuário, veículo, datas, km, fotos, GPS, endereço, rota, status da viagem e status do fechamento; cada item deve trazer diretamente foto inicial/final e GPS com endereço de partida/chegada |
 | RF-017 | O sistema deve exportar relatório | Exportação deve gerar arquivo estruturado para análise mensal |
 | RF-018 | O sistema não deve usar aprovação individual de viagem | App não deve consumir `/trips/{id}/approve`; controle mensal ocorre no fechamento aberto/fechado |
+| RF-019 | O usuário externo deve solicitar cadastro pelo login | Solicitação pública registra dados pessoais, cargo, superior e veículo; somente administrador aprova ou reprova antes de criar usuário ativo |
 
 ## 4. Requisitos Não Funcionais
 

@@ -31,12 +31,27 @@ class Settings(BaseSettings):
         default="https://nominatim.openstreetmap.org/reverse",
         alias="NOMINATIM_REVERSE_URL",
     )
+    frontend_base_url: str = Field(default="http://localhost:5173", alias="FRONTEND_BASE_URL")
+    password_reset_token_expire_minutes: int = Field(default=60, alias="PASSWORD_RESET_TOKEN_EXPIRE_MINUTES")
+    smtp_host: str | None = Field(default=None, alias="SMTP_HOST")
+    smtp_port: int = Field(default=587, alias="SMTP_PORT")
+    smtp_username: str | None = Field(default=None, alias="SMTP_USERNAME")
+    smtp_password: str | None = Field(default=None, alias="SMTP_PASSWORD")
+    smtp_from_email: str | None = Field(default=None, alias="SMTP_FROM_EMAIL")
+    smtp_from_name: str = Field(default="Itinerario Bello", alias="SMTP_FROM_NAME")
+    smtp_use_tls: bool = Field(default=True, alias="SMTP_USE_TLS")
+    smtp_use_ssl: bool = Field(default=False, alias="SMTP_USE_SSL")
+    smtp_timeout_seconds: float = Field(default=10.0, alias="SMTP_TIMEOUT_SECONDS")
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
+    @property
+    def smtp_configured(self) -> bool:
+        return bool(self.smtp_host and (self.smtp_from_email or self.smtp_username))
 
     @field_validator("secret_key", mode="before")
     @classmethod
@@ -51,6 +66,20 @@ class Settings(BaseSettings):
         if isinstance(value, str) and value.strip():
             return value.strip().lower()
         return "nominatim"
+
+    @field_validator(
+        "smtp_host",
+        "smtp_username",
+        "smtp_password",
+        "smtp_from_email",
+        mode="before",
+    )
+    @classmethod
+    def none_when_blank(cls, value: object) -> str | None:
+        if isinstance(value, str):
+            cleaned = value.strip()
+            return cleaned or None
+        return value
 
 
 @lru_cache

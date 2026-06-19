@@ -27,6 +27,7 @@ class Veiculo(UuidPkMixin, TimestampMixin, Base):
 
     placa: Mapped[str] = mapped_column(String(10), nullable=False, unique=True, index=True)
     modelo: Mapped[str] = mapped_column(String(120), nullable=False)
+    marca: Mapped[str | None] = mapped_column(String(80), nullable=True)
     unidade: Mapped[str | None] = mapped_column(String(120), nullable=True)
     categoria: Mapped[str | None] = mapped_column(String(120), nullable=True)
     tipo: Mapped[TipoVeiculo] = mapped_column(

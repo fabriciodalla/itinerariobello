@@ -287,6 +287,8 @@ def limpar_registros_transacionais_de_teste():
     from app.models.fechamento_mensal import FechamentoMensal
     from app.models.foto_hodometro import FotoHodometro
     from app.models.localizacao_gps import LocalizacaoGPS
+    from app.models.password_reset_token import PasswordResetToken
+    from app.models.solicitacao_cadastro import SolicitacaoCadastro
     from app.models.viagem import Viagem
 
     def cleanup() -> None:
@@ -294,6 +296,8 @@ def limpar_registros_transacionais_de_teste():
         try:
             db.execute(delete(FechamentoMensal))
             db.execute(delete(Aprovacao))
+            db.execute(delete(PasswordResetToken))
+            db.execute(delete(SolicitacaoCadastro))
             db.execute(delete(LocalizacaoGPS))
             db.execute(delete(FotoHodometro))
             db.execute(delete(Viagem))

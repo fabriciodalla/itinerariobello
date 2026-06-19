@@ -11,6 +11,7 @@ class VeiculoResponse(BaseModel):
     id: UUID
     placa: str
     modelo: str
+    marca: str | None = None
     unidade: str | None = None
     categoria: str | None = None
     tipo: TipoVeiculo
@@ -23,6 +24,7 @@ class VeiculoResponse(BaseModel):
 class VeiculoCreateRequest(BaseModel):
     placa: str = Field(min_length=1, max_length=10)
     modelo: str = Field(min_length=1, max_length=120)
+    marca: str | None = Field(default=None, max_length=80)
     tipo: TipoVeiculo
     tipo_disponibilidade: TipoDisponibilidadeVeiculo | None = None
     usuario_responsavel_id: UUID | None = None

@@ -1,8 +1,9 @@
-import type { StatusFechamento, StatusViagem } from '../types/domain'
+import type { StatusFechamento, StatusSolicitacaoCadastro, StatusViagem } from '../types/domain'
 
 type KnownStatus =
   | StatusViagem
   | StatusFechamento
+  | StatusSolicitacaoCadastro
   | 'motorista'
   | 'supervisor'
   | 'analista'
@@ -16,6 +17,9 @@ const LABELS: Record<KnownStatus, string> = {
   concluida: 'Concluida',
   aberto: 'Aberto',
   fechado: 'Fechado',
+  pendente: 'Pendente',
+  aprovada: 'Aprovada',
+  rejeitada: 'Rejeitada',
   motorista: 'Motorista',
   supervisor: 'Supervisor',
   analista: 'Analista',

@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import auth, geocoding, trips, users, vehicles
+from app.api.routes import auth, geocoding, signup_requests, trips, users, vehicles
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -20,6 +20,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(signup_requests.router)
 app.include_router(users.router)
 app.include_router(vehicles.router)
 app.include_router(geocoding.router)

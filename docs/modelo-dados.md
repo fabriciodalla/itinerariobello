@@ -15,6 +15,8 @@ O modelo deve garantir rastreabilidade da viagem, vínculo com usuário e veícu
 | `LocalizacaoGPS` | Coordenada capturada na partida ou chegada |
 | `FechamentoMensal` | Consolidação mensal de viagens de um motorista, aberta ou fechada pelo responsável |
 | `RelatorioMensal` | Consulta ou visão consolidada para análise e exportação, incluindo evidências diretas de fotos e GPS por viagem |
+| `PasswordResetToken` | Token temporário e de uso único para recuperação de senha |
+| `SolicitacaoCadastro` | Pedido público de cadastro, aprovado ou reprovado por administrador |
 
 `Aprovacao` por viagem não faz parte do fluxo vigente e não deve ser usada por novos endpoints. O fechamento mensal é a entidade de controle do processo atual.
 
@@ -43,6 +45,7 @@ Observação: todos os usuários importados da planilha operacional devem poder 
 | `id` | UUID | Sim | Identificador único |
 | `placa` | Texto | Sim | Deve ser única |
 | `modelo` | Texto | Sim | Exemplo: Onix, Saveiro |
+| `marca` | Texto | Não | Marca do veículo quando informada no cadastro ou na solicitação pública |
 | `tipo` | Enum | Sim | `proprio`, `alugado`, `empresa` |
 | `tipo_disponibilidade` | Enum | Sim | `fixo` ou `alocado` |
 | `usuario_responsavel_id` | UUID | Depende | Obrigatório quando `tipo_disponibilidade = fixo` |
@@ -137,7 +140,54 @@ Campos obrigatórios de evidência no item:
 | `gps_partida` | `LocalizacaoGPS` com `tipo = partida` | Deve trazer latitude, longitude, precisão, endereço quando disponível, status de resolução, texto de exibição e captura |
 | `gps_chegada` | `LocalizacaoGPS` com `tipo = chegada` | Deve trazer latitude, longitude, precisão, endereço quando disponível, status de resolução, texto de exibição e captura |
 
-## 10. Relacionamentos
+## 10. PasswordResetToken
+
+| Campo | Tipo sugerido | Obrigatório | Observação |
+|---|---|---|---|
+| `id` | UUID | Sim | Identificador único |
+| `usuario_id` | UUID | Sim | Usuário que solicitou recuperação |
+| `token_hash` | Texto | Sim | Hash SHA-256 do token bruto enviado por e-mail |
+| `expira_em` | Data/hora | Sim | Prazo máximo para uso |
+| `usado_em` | Data/hora | Não | Preenchido quando o token for consumido ou invalidado |
+| `criado_em` | Data/hora | Sim | Auditoria |
+| `atualizado_em` | Data/hora | Sim | Auditoria |
+
+Regras técnicas:
+
+- O token bruto nunca deve ser salvo no banco.
+- Tokens anteriores em aberto do mesmo usuário são invalidados quando novo token é criado.
+- Token expirado, usado ou vinculado a usuário inativo não pode redefinir senha.
+
+## 11. SolicitacaoCadastro
+
+| Campo | Tipo sugerido | Obrigatório | Observação |
+|---|---|---|---|
+| `id` | UUID | Sim | Identificador único |
+| `nome` | Texto | Sim | Nome informado no formulário público |
+| `email` | Texto | Sim | E-mail solicitado para login |
+| `cargo` | Texto | Sim | Cargo informado pelo solicitante |
+| `superior` | Texto | Sim | Superior informado pelo solicitante, ainda sem vínculo técnico |
+| `veiculo_placa` | Texto | Sim | Placa do veículo informado |
+| `veiculo_modelo` | Texto | Sim | Modelo do veículo informado |
+| `veiculo_marca` | Texto | Sim | Marca do veículo informado |
+| `observacao` | Texto | Não | Informação complementar do solicitante |
+| `status` | Enum | Sim | `pendente`, `aprovada` ou `rejeitada` |
+| `usuario_id` | UUID | Não | Usuário criado quando aprovado |
+| `veiculo_id` | UUID | Não | Veículo criado ou vinculado quando aprovado |
+| `processado_por_id` | UUID | Não | Administrador que aprovou ou rejeitou |
+| `processado_em` | Data/hora | Não | Data/hora da decisão |
+| `motivo_recusa` | Texto | Não | Motivo informado quando rejeitada |
+| `criado_em` | Data/hora | Sim | Auditoria |
+| `atualizado_em` | Data/hora | Sim | Auditoria |
+
+Regras técnicas:
+
+- Solicitação pública não cria usuário ativo automaticamente.
+- Aprovação exige administrador autenticado.
+- Ao aprovar, o administrador define senha temporária, perfil, superior técnico e permissão de fechamento.
+- Se o veículo não existir, ele é criado; se existir como fixo de outro usuário, a aprovação é bloqueada.
+
+## 12. Relacionamentos
 
 ```txt
 Usuario 1:N Viagem
@@ -145,12 +195,15 @@ Usuario 1:N Usuario (superior e subordinados)
 Usuario 1:N Veiculo (responsável usual ou veículo fixo)
 Usuario 1:N FechamentoMensal (motorista)
 Usuario 1:N FechamentoMensal (responsável pelo fechamento)
+Usuario 1:N PasswordResetToken
+Usuario 1:N SolicitacaoCadastro (usuário criado e administrador processador)
 Veiculo 1:N Viagem
+Veiculo 1:N SolicitacaoCadastro
 Viagem 1:N FotoHodometro
 Viagem 1:N LocalizacaoGPS
 ```
 
-## 11. Regras Técnicas Do Modelo
+## 13. Regras Técnicas Do Modelo
 
 - Usar UUID como identificador principal.
 - Usar campos `criado_em` e `atualizado_em` nas tabelas principais.
@@ -160,5 +213,7 @@ Viagem 1:N LocalizacaoGPS
 - Calcular `km_rodado` a partir de `km_final - km_inicial`.
 - Validar status da viagem no backend.
 - Validar status do fechamento mensal no backend.
+- Validar status da solicitação de cadastro no backend.
+- Nunca salvar token bruto de recuperação de senha.
 - Validar que veículo fixo tenha usuário responsável.
 - Validar que fechamento mensal seja executado por usuário com `pode_aprovar = true` e vínculo de superior imediato, exceto regras administrativas explícitas.

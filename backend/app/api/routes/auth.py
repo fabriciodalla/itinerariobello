@@ -19,6 +19,8 @@ from app.schemas.auth import (
     TokenResponse,
     UsuarioAutenticadoResponse,
 )
+from app.services.email import send_password_reset_email
+from app.services.password_reset import build_reset_url, create_password_reset_token, reset_password_with_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -51,17 +53,26 @@ def logout(_: Annotated[Usuario, Depends(get_current_user)]) -> Response:
 
 
 @router.post("/forgot-password", status_code=status.HTTP_202_ACCEPTED)
-def forgot_password(_: ForgotPasswordRequest) -> Response:
-    # No prototipo, o envio de e-mail ainda nao esta integrado; a resposta generica evita enumerar usuarios.
+def forgot_password(
+    payload: ForgotPasswordRequest,
+    db: Annotated[Session, Depends(get_db)],
+) -> Response:
+    email = str(payload.email).strip().lower()
+    usuario = db.scalar(select(Usuario).where(Usuario.email == email).where(Usuario.ativo.is_(True)))
+    if usuario is None:
+        return Response(status_code=status.HTTP_202_ACCEPTED)
+
+    settings = get_settings()
+    raw_token = create_password_reset_token(db, usuario, settings)
+    reset_url = build_reset_url(settings, raw_token)
+    send_password_reset_email(settings, to_email=usuario.email, to_name=usuario.nome, reset_url=reset_url)
     return Response(status_code=status.HTTP_202_ACCEPTED)
 
 
 @router.post("/reset-password", status_code=status.HTTP_204_NO_CONTENT)
-def reset_password(_: ResetPasswordRequest) -> Response:
-    raise HTTPException(
-        status_code=status.HTTP_400_BAD_REQUEST,
-        detail="Token de recuperacao invalido ou expirado.",
-    )
+def reset_password(payload: ResetPasswordRequest, db: Annotated[Session, Depends(get_db)]) -> Response:
+    reset_password_with_token(db, token=payload.token, nova_senha=payload.nova_senha)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)

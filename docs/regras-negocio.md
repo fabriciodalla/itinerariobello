@@ -43,6 +43,8 @@ O fechamento mensal é sempre por motorista individual, considerando as viagens 
 | RN-021 | O fechamento mensal deve ser feito por motorista individual, não por equipe inteira | Backend |
 | RN-022 | Endpoints legados de aprovação/reprovação, como `/trips/{id}/approve` e `/reports/monthly/closures/{id}/approve`, não devem ser usados pelo fluxo vigente | Backend e app |
 | RN-023 | Endereço de partida e chegada é complemento do GPS e deve ser salvo quando resolvido, sem substituir latitude e longitude | Backend e app |
+| RN-024 | Token de recuperação de senha deve expirar e ser usado uma única vez | Backend |
+| RN-025 | Solicitação pública de cadastro não cria usuário ativo sem aprovação de administrador | Backend |
 
 ## 4. Fluxo De Validação Da Partida
 
@@ -123,3 +125,22 @@ Cada item retornado pela consulta do relatório mensal deve entregar diretamente
 O frontend também deve ter endpoint específico para consultar o GPS de uma viagem quando precisar abrir o detalhe individual.
 
 Latitude e longitude continuam sendo a evidência obrigatória de localização. O endereço é aproximado, depende de geocodificação reversa e não deve bloquear partida, chegada ou fechamento quando não puder ser resolvido. Quando o endereço não for resolvido, a API deve manter `endereco = null` e entregar um texto de exibição como `"Endereco nao resolvido"` junto do status `endereco_resolvido = false`.
+
+## 9. Fluxo De Recuperação De Senha
+
+1. Usuário informa e-mail na tela de login.
+2. Backend responde sempre de forma genérica para evitar enumeração de usuários.
+3. Se o e-mail pertencer a usuário ativo, backend invalida tokens anteriores em aberto, cria token temporário, salva apenas `token_hash` e envia link por e-mail.
+4. Usuário abre o link e informa nova senha.
+5. Backend valida token, expiração, uso único e usuário ativo.
+6. Senha é salva somente como hash seguro e o token fica marcado como usado.
+
+## 10. Fluxo De Solicitação De Cadastro
+
+1. Interessado acessa `Solicitar cadastro` na tela de login.
+2. Solicitação registra nome, e-mail, cargo, superior informado, placa, modelo e marca do veículo.
+3. Solicitação fica com status `pendente`.
+4. Administrador acessa a área de cadastros, confere os dados, define perfil, superior, permissão de fechamento e senha temporária.
+5. Ao aprovar, o backend cria usuário ativo, cria ou vincula veículo e marca a solicitação como `aprovada`.
+6. Ao reprovar, o backend registra motivo e marca a solicitação como `rejeitada`.
+7. Usuário pendente ou reprovado não consegue autenticar até existir usuário ativo aprovado.

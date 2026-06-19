@@ -26,7 +26,7 @@ Quando identificar melhoria não solicitada, explicar a proposta e aguardar conf
 | Prioridade atual | Estabilização, testes e ajustes para acesso externo |
 
 **O que já existe:**
-- Backend FastAPI com rotas: `/auth`, `/trips`, `/vehicles`, `/reports/monthly`, `/geocoding`, `/health`
+- Backend FastAPI com rotas: `/auth`, `/signup-requests`, `/users`, `/trips`, `/vehicles`, `/reports/monthly`, `/geocoding`, `/health`
 - Frontend React + TypeScript (PWA) com telas de login, viagem, histórico e fechamento mensal
 - Banco PostgreSQL com todas as tabelas, constraints e migrations aplicadas
 - Suite de testes pytest com sistema de auditoria de risco (`@pytest.mark.risco`)
@@ -88,7 +88,7 @@ Novas dependências só com autorização explícita do usuário.
 backend/app/
   api/
     deps.py              # get_current_user(), require_admin()
-    routes/              # auth.py, trips.py, vehicles.py, geocoding.py
+    routes/              # auth.py, signup_requests.py, users.py, trips.py, vehicles.py, geocoding.py
   core/config.py         # Settings via BaseSettings
   core/security.py       # JWT + hashing
   db/base.py             # Base SQLAlchemy, UuidPkMixin, TimestampMixin

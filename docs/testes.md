@@ -97,7 +97,9 @@ Devem existir testes para:
 - saude tecnica da API via endpoint de infraestrutura;
 - estrutura inicial do banco, models e migrations;
 - autenticacao e sessao;
+- recuperação de senha por token temporário;
 - permissao por perfil;
+- solicitação pública de cadastro com aprovação restrita a admin;
 - criacao de viagem;
 - obrigatoriedade de foto inicial;
 - obrigatoriedade de GPS inicial;
@@ -124,6 +126,7 @@ backend/
       factories.py
       helpers.py
       test_auth.py
+      test_signup_requests.py
       test_trips_start.py
       test_trips_finish.py
       test_approvals.py

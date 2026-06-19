@@ -12,6 +12,7 @@ from app.models.enums import PerfilUsuario, enum_values
 if TYPE_CHECKING:
     from app.models.aprovacao import Aprovacao
     from app.models.fechamento_mensal import FechamentoMensal
+    from app.models.password_reset_token import PasswordResetToken
     from app.models.veiculo import Veiculo
     from app.models.viagem import Viagem
 
@@ -55,4 +56,8 @@ class Usuario(UuidPkMixin, TimestampMixin, Base):
     fechamentos_mensais_avaliados: Mapped[list[FechamentoMensal]] = relationship(
         back_populates="superior",
         foreign_keys="FechamentoMensal.superior_id",
+    )
+    password_reset_tokens: Mapped[list[PasswordResetToken]] = relationship(
+        back_populates="usuario",
+        cascade="all, delete-orphan",
     )

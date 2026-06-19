@@ -37,7 +37,11 @@ Editar `.env.production` e trocar:
 - `POSTGRES_PASSWORD`;
 - senha dentro de `DATABASE_URL`;
 - `CORS_ORIGINS`;
-- `SECRET_KEY`.
+- `SECRET_KEY`;
+- `FRONTEND_BASE_URL`;
+- `SMTP_HOST`;
+- `SMTP_FROM_EMAIL`;
+- `SMTP_USERNAME` e `SMTP_PASSWORD`, quando o provedor exigir autenticação.
 
 Criar a pasta de certificados:
 

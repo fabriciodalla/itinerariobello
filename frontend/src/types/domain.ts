@@ -1,6 +1,7 @@
 export type PerfilUsuario = 'motorista' | 'supervisor' | 'analista' | 'admin'
 export type StatusViagem = 'em_andamento' | 'concluida'
 export type StatusFechamento = 'aberto' | 'fechado'
+export type StatusSolicitacaoCadastro = 'pendente' | 'aprovada' | 'rejeitada'
 export type TipoVeiculo = 'proprio' | 'alugado' | 'empresa'
 export type TipoDisponibilidadeVeiculo = 'fixo' | 'alocado'
 export type Numeric = number | string
@@ -20,6 +21,7 @@ export interface Vehicle {
   id: string
   placa: string
   modelo: string
+  marca: string | null
   unidade: string | null
   categoria: string | null
   tipo: TipoVeiculo
@@ -63,6 +65,38 @@ export interface Trip {
 export interface LoginResponse {
   access_token: string
   token_type: 'bearer'
+}
+
+export interface SignupRequestPayload {
+  nome: string
+  email: string
+  cargo: string
+  superior: string
+  veiculo_placa: string
+  veiculo_modelo: string
+  veiculo_marca: string
+  observacao?: string | null
+}
+
+export interface SignupApprovePayload {
+  senha_temporaria: string
+  perfil: PerfilUsuario
+  superior_id: string | null
+  pode_aprovar: boolean
+  tipo_veiculo: TipoVeiculo
+  tipo_disponibilidade?: TipoDisponibilidadeVeiculo | null
+}
+
+export interface SignupRequest extends SignupRequestPayload {
+  id: string
+  status: StatusSolicitacaoCadastro
+  usuario_id: string | null
+  veiculo_id: string | null
+  processado_por_id: string | null
+  processado_em: string | null
+  motivo_recusa: string | null
+  criado_em: string
+  atualizado_em: string
 }
 
 export interface PhotoEvidence {

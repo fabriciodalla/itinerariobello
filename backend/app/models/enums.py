@@ -45,5 +45,11 @@ class StatusFechamentoMensal(str, Enum):
     fechado = "fechado"
 
 
+class StatusSolicitacaoCadastro(str, Enum):
+    pendente = "pendente"
+    aprovada = "aprovada"
+    rejeitada = "rejeitada"
+
+
 def enum_values(enum_cls: type[Enum]) -> list[str]:
     return [item.value for item in enum_cls]

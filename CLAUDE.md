@@ -33,7 +33,7 @@ backend/
   app/
     api/
       deps.py           # get_current_user(), require_admin()
-      routes/           # um arquivo por domínio (auth, trips, vehicles, reports...)
+      routes/           # um arquivo por domínio (auth, signup_requests, users, trips, vehicles, reports...)
     core/
       config.py         # Settings via BaseSettings — lê .env
       security.py       # JWT + hashing de senha
@@ -181,6 +181,9 @@ Definir em `.env` (copiar de `.env.example`):
 | `CORS_ORIGINS` | Origins permitidas, separadas por vírgula | sim |
 | `APP_ENV` | `local` / `production` | não |
 | `REVERSE_GEOCODING_ENABLED` | `false` por padrão | não |
+| `FRONTEND_BASE_URL` | URL pública usada nos links de recuperação de senha | sim |
+| `SMTP_HOST` | Servidor SMTP para recuperação de senha | sim |
+| `SMTP_FROM_EMAIL` | Remetente dos e-mails de recuperação | sim |
 
 Para testes, definir também:
 `TEST_MOTORISTA_EMAIL` · `TEST_MOTORISTA_PASSWORD` · `TEST_APROVADOR_EMAIL` · `TEST_APROVADOR_PASSWORD` · `TEST_ANALISTA_EMAIL` · `TEST_ANALISTA_PASSWORD` · `TEST_VEICULO_ID`

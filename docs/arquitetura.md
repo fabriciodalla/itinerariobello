@@ -21,6 +21,7 @@ O protótipo deve ser uma aplicação mobile conectada a uma API REST em Python.
 | PWA Features | Workbox + react-pwa-install | Google Workbox para Service Workers, offline-first; library para prompts de instalação |
 | Câmera | Input nativo HTML com `capture="environment"` | Abre diretamente a câmera traseira do celular e evita prévia preta no PWA |
 | GPS | react-use-geolocation | Hook React para captura de localização GPS |
+| E-mail transacional | SMTP via biblioteca padrão Python | Envio de link de recuperação de senha sem adicionar dependência |
 
 ## 3. Serviços Docker Esperados
 
@@ -80,6 +81,17 @@ As variáveis principais são:
 | `REVERSE_GEOCODING_TIMEOUT_SECONDS` | Tempo máximo da consulta de endereço |
 | `REVERSE_GEOCODING_USER_AGENT` | Identificação enviada ao provedor de geocodificação |
 | `NOMINATIM_REVERSE_URL` | URL do endpoint reverso do Nominatim quando esse provedor for usado |
+| `FRONTEND_BASE_URL` | URL pública do PWA usada para montar links de recuperação de senha |
+| `PASSWORD_RESET_TOKEN_EXPIRE_MINUTES` | Tempo de expiração do token de recuperação de senha |
+| `SMTP_HOST` | Servidor SMTP usado para recuperação de senha |
+| `SMTP_PORT` | Porta SMTP |
+| `SMTP_USERNAME` | Usuário SMTP, quando exigido pelo provedor |
+| `SMTP_PASSWORD` | Senha SMTP, quando exigida pelo provedor |
+| `SMTP_FROM_EMAIL` | Remetente usado nos e-mails |
+| `SMTP_FROM_NAME` | Nome de exibição do remetente |
+| `SMTP_USE_TLS` | Habilita STARTTLS |
+| `SMTP_USE_SSL` | Habilita conexão SMTP SSL direta |
+| `SMTP_TIMEOUT_SECONDS` | Tempo máximo para conexão SMTP |
 
 Se `SECRET_KEY` não for definida no ambiente local, a API gera uma chave efêmera ao iniciar. Isso permite desenvolvimento rápido, mas invalida tokens após reinício; em servidor de testes ou produção a variável deve ser configurada explicitamente.
 
@@ -121,6 +133,7 @@ backend/
     api/
       routes/
         auth.py
+        signup_requests.py
         users.py
         vehicles.py
         trips.py
@@ -142,6 +155,7 @@ frontend/
   src/
     screens/
       Login/
+      Cadastros/
       SelecionarVeiculo/
       Partida/
       Chegada/
@@ -298,6 +312,8 @@ As etapas operacionais ficam em `docs/deploy-vm-compartilhada.md`. Se o proxy pr
 
 - Senhas devem ser armazenadas com hash seguro.
 - Tokens ou sessões devem ter expiração.
+- Tokens de recuperação de senha devem ser armazenados somente como hash e usados uma única vez.
+- Cadastro público deve criar apenas solicitação pendente; usuário ativo depende de aprovação admin.
 - Dados de localização devem ser acessíveis apenas por usuários autorizados.
 - Fotos devem ter controle de acesso.
 - Logs não devem expor senha, token ou dados sensíveis desnecessários.

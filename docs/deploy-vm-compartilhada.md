@@ -97,6 +97,17 @@ REVERSE_GEOCODING_PROVIDER=nominatim
 REVERSE_GEOCODING_TIMEOUT_SECONDS=3
 REVERSE_GEOCODING_USER_AGENT=itinerario-bello-vm/1.0
 NOMINATIM_REVERSE_URL=https://nominatim.openstreetmap.org/reverse
+FRONTEND_BASE_URL=https://itinerario.dominio.com.br
+PASSWORD_RESET_TOKEN_EXPIRE_MINUTES=60
+SMTP_HOST=smtp.dominio.com.br
+SMTP_PORT=587
+SMTP_USERNAME=usuario-smtp
+SMTP_PASSWORD=SENHA_SMTP
+SMTP_FROM_EMAIL=nao-responda@dominio.com.br
+SMTP_FROM_NAME=Itinerario Bello
+SMTP_USE_TLS=true
+SMTP_USE_SSL=false
+SMTP_TIMEOUT_SECONDS=10
 ```
 
 Validar Compose:

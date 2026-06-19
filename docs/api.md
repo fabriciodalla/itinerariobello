@@ -48,12 +48,63 @@ O login retorna um token Bearer com expiração configurável:
 
 Endpoints protegidos devem receber o cabeçalho `Authorization: Bearer <token>`.
 
-Recuperação de senha no protótipo:
+Recuperação de senha:
 
 - `POST /auth/forgot-password` recebe `{ "email": "usuario@bello.local" }` e retorna `202`, sem informar se o e-mail existe.
-- `POST /auth/reset-password` recebe `{ "token": "token-de-recuperacao", "nova_senha": "nova-senha" }`; enquanto o envio de e-mail não estiver integrado, tokens inválidos retornam `400`.
+- Se o e-mail pertencer a usuário ativo, a API cria token temporário, salva apenas o hash e envia link para `FRONTEND_BASE_URL/?reset_token=...`.
+- `POST /auth/reset-password` recebe `{ "token": "token-de-recuperacao", "nova_senha": "nova-senha" }`.
+- Tokens inválidos, expirados, já usados ou vinculados a usuário inativo retornam `400`.
 
-## 4. Usuários
+## 4. Solicitações De Cadastro
+
+| Método | Endpoint | Finalidade | Autenticação |
+|---|---|---|---|
+| `POST` | `/signup-requests` | Criar solicitação pública de cadastro | Não |
+| `GET` | `/signup-requests` | Listar solicitações | Admin |
+| `POST` | `/signup-requests/{id}/approve` | Aprovar solicitação e criar usuário/veículo | Admin |
+| `POST` | `/signup-requests/{id}/reject` | Reprovar solicitação | Admin |
+
+Criação pública:
+
+```json
+{
+  "nome": "Nome do Usuario",
+  "email": "usuario@bello.local",
+  "cargo": "Vendedor",
+  "superior": "Nome do Superior",
+  "veiculo_placa": "ABC1234",
+  "veiculo_modelo": "Onix",
+  "veiculo_marca": "Chevrolet",
+  "observacao": "Opcional"
+}
+```
+
+A resposta retorna status `pendente`. O usuário ainda não consegue fazer login.
+
+Aprovação:
+
+```json
+{
+  "senha_temporaria": "senha-com-8-ou-mais-caracteres",
+  "perfil": "motorista",
+  "superior_id": "uuid-do-superior-ou-null",
+  "pode_aprovar": false,
+  "tipo_veiculo": "proprio",
+  "tipo_disponibilidade": "fixo"
+}
+```
+
+`tipo_disponibilidade` é opcional. Quando omitido, veículos `proprio` ou `alugado` viram `fixo`; veículo `empresa` vira `alocado`.
+
+Reprovação:
+
+```json
+{
+  "motivo": "Dados incompletos."
+}
+```
+
+## 5. Usuários
 
 | Método | Endpoint | Finalidade | Perfil mínimo |
 |---|---|---|---|
@@ -63,7 +114,7 @@ Recuperação de senha no protótipo:
 | `PATCH` | `/users/{id}` | Atualizar usuário | Admin |
 | `PATCH` | `/users/{id}/status` | Ativar ou inativar usuário | Admin |
 
-## 5. Veículos
+## 6. Veículos
 
 | Método | Endpoint | Finalidade | Perfil mínimo |
 |---|---|---|---|
@@ -87,12 +138,13 @@ Campos principais de veículo:
 |---|---|---|
 | `placa` | Texto | Placa única do veículo |
 | `modelo` | Texto | Modelo do veículo |
+| `marca` | Texto ou nulo | Marca do veículo |
 | `tipo` | Enum | `proprio`, `alugado` ou `empresa` |
 | `tipo_disponibilidade` | Enum | `fixo` ou `alocado` |
 | `usuario_responsavel_id` | UUID ou nulo | Obrigatório para veículo `fixo` |
 | `ativo` | Booleano | Define se o veículo pode ser usado |
 
-## 6. Viagens
+## 7. Viagens
 
 | Método | Endpoint | Finalidade | Perfil mínimo |
 |---|---|---|---|
@@ -138,7 +190,7 @@ Cada item de `GET /trips` e `GET /trips/{id}` deve trazer dados suficientes para
 
 Endpoints legados de aprovação individual de viagem, como `/trips/{id}/approve`, `/trips/{id}/reject`, `/trips/{id}/request-adjustment` e `/trips/{id}/approvals`, não devem ser consumidos pelo app. Quando expostos durante a transição, devem retornar `410 Gone`.
 
-## 7. Fotos E GPS
+## 8. Fotos E GPS
 
 | Método | Endpoint | Finalidade | Perfil mínimo |
 |---|---|---|---|
@@ -201,7 +253,7 @@ Resposta:
 
 `endereco` pode retornar `null` quando a geocodificação reversa estiver desabilitada, indisponível, sem resposta válida ou sem endereço aproximado para a coordenada. Nesses casos, `endereco_resolvido` retorna `false` e `endereco_exibicao` retorna `"Endereco nao resolvido"` para uso em tela e exportação. O endpoint exige autenticação porque latitude e longitude são dados sensíveis.
 
-## 8. Relatórios E Fechamento Mensal
+## 9. Relatórios E Fechamento Mensal
 
 | Método | Endpoint | Finalidade | Perfil mínimo |
 |---|---|---|---|
@@ -215,7 +267,7 @@ Responsável pelo fechamento é o usuário com `pode_aprovar = true`, normalment
 
 Endpoints legados de decisão do fechamento mensal, como `/reports/monthly/closures/{motorista_id}/approve` e `/reports/monthly/closures/{motorista_id}/reject`, não devem ser consumidos pelo app e retornam `410 Gone`.
 
-## 9. Contrato Para Partida
+## 10. Contrato Para Partida
 
 Para o protótipo, a partida deve ser enviada em `multipart/form-data`, garantindo que a foto obrigatória seja validada no mesmo request que cria a viagem.
 
@@ -243,7 +295,7 @@ Conteúdo de `payload`:
 
 `endereco` é opcional no payload. Se não vier informado, o backend pode tentar resolver por geocodificação reversa quando o serviço estiver habilitado. Se `foto_hodometro` não for enviado, a API deve rejeitar a partida.
 
-## 10. Contrato Para Chegada
+## 11. Contrato Para Chegada
 
 Para o protótipo, a chegada também deve ser enviada em `multipart/form-data`, garantindo foto final, GPS, rota e km final no mesmo request.
 
@@ -271,7 +323,7 @@ Conteúdo de `payload`:
 
 `endereco` é opcional no payload. Se não vier informado, o backend pode tentar resolver por geocodificação reversa quando o serviço estiver habilitado. Se `foto_hodometro` não for enviado, a API deve rejeitar a chegada.
 
-## 11. Contrato Para Relatório Mensal
+## 12. Contrato Para Relatório Mensal
 
 Consulta:
 
@@ -362,7 +414,7 @@ Item de resposta:
 
 O item do relatório mensal deve entregar as evidências diretamente no JSON. Fotos devem trazer metadados e `download_url`; GPS deve trazer coordenadas, `endereco`, `endereco_resolvido` e `endereco_exibicao` de partida e chegada. Na exportação mensal, as colunas `gps_partida_endereco` e `gps_chegada_endereco` usam o endereço resolvido quando disponível ou `"Endereco nao resolvido"` quando indisponível; as colunas `gps_partida_endereco_resolvido` e `gps_chegada_endereco_resolvido` indicam se o valor é um endereço real resolvido.
 
-## 12. Contrato Para Fechamento Mensal
+## 13. Contrato Para Fechamento Mensal
 
 Detalhe:
 
@@ -411,7 +463,7 @@ POST /reports/monthly/closures/{motorista_id}/reject?ano=2026&mes=5
 
 Essas rotas retornam `410 Gone` no fluxo vigente.
 
-## 13. Códigos De Resposta
+## 14. Códigos De Resposta
 
 | Código | Uso |
 |---|---|

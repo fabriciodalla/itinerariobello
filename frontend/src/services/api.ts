@@ -5,6 +5,10 @@ import type {
   PhotoEvidence,
   ReportItem,
   ReverseGeocodeResponse,
+  SignupApprovePayload,
+  SignupRequest,
+  SignupRequestPayload,
+  StatusSolicitacaoCadastro,
   Trip,
   User,
   Vehicle,
@@ -56,6 +60,11 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     return undefined as T
   }
 
+  const contentType = response.headers.get('Content-Type') || ''
+  if (!contentType.includes('application/json')) {
+    return undefined as T
+  }
+
   return response.json() as Promise<T>
 }
 
@@ -93,8 +102,51 @@ export const api = {
       body: JSON.stringify({ senha_atual: senhaAtual, nova_senha: novaSenha }),
     })
   },
+  forgotPassword(email: string) {
+    return request<void>('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    })
+  },
+  resetPassword(resetToken: string, novaSenha: string) {
+    return request<void>('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token: resetToken, nova_senha: novaSenha }),
+    })
+  },
+  createSignupRequest(payload: SignupRequestPayload) {
+    return request<SignupRequest>('/signup-requests', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  },
+  signupRequests(token: string, status?: StatusSolicitacaoCadastro) {
+    const params = new URLSearchParams()
+    if (status) {
+      params.set('status', status)
+    }
+    const query = params.toString()
+    return request<SignupRequest[]>(`/signup-requests${query ? `?${query}` : ''}`, { token })
+  },
+  approveSignupRequest(token: string, requestId: string, payload: SignupApprovePayload) {
+    return request<SignupRequest>(`/signup-requests/${requestId}/approve`, {
+      method: 'POST',
+      token,
+      body: JSON.stringify(payload),
+    })
+  },
+  rejectSignupRequest(token: string, requestId: string, motivo: string) {
+    return request<SignupRequest>(`/signup-requests/${requestId}/reject`, {
+      method: 'POST',
+      token,
+      body: JSON.stringify({ motivo }),
+    })
+  },
   me(token: string) {
     return request<User>('/auth/me', { token })
+  },
+  users(token: string) {
+    return request<User[]>('/users', { token })
   },
   vehicles(token: string) {
     return request<Vehicle[]>('/vehicles', { token })
