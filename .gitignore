@@ -1,0 +1,17 @@
+.env
+.env.production
+.env.local
+certs/
+.venv/
+node_modules/
+dist/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+backend/app/tests/reports/
+storage/photos/*
+!storage/photos/.gitkeep
+*.xlsx
+*.log
+*.sql
+backups/

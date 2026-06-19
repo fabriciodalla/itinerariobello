@@ -1,0 +1,80 @@
+name: itinerario-bello-vm
+
+# =============================================================================
+# Docker Compose para VM compartilhada
+#
+# Uso esperado:
+#   - O proxy/Nginx principal da VM fica responsavel por HTTPS em 80/443.
+#   - Este stack publica somente o frontend HTTP em 127.0.0.1:8082.
+#   - API e PostgreSQL ficam privados na rede Docker.
+#
+# Comandos:
+#   docker compose --env-file .env.production -f docker-compose.vm.yml config
+#   docker compose --env-file .env.production -f docker-compose.vm.yml up -d --build
+#   docker compose --env-file .env.production -f docker-compose.vm.yml exec api alembic upgrade head
+# =============================================================================
+
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: itinerario_bello_vm_api
+    environment:
+      APP_ENV: ${APP_ENV:?defina APP_ENV em .env.production}
+      APP_DEBUG: ${APP_DEBUG:-false}
+      DATABASE_URL: ${DATABASE_URL:?defina DATABASE_URL em .env.production}
+      PHOTOS_DIR: ${PHOTOS_DIR:-/app/storage/photos}
+      CORS_ORIGINS: ${CORS_ORIGINS:?defina CORS_ORIGINS em .env.production}
+      SECRET_KEY: ${SECRET_KEY:?defina SECRET_KEY em .env.production}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-10080}
+      REVERSE_GEOCODING_ENABLED: ${REVERSE_GEOCODING_ENABLED:-false}
+      REVERSE_GEOCODING_PROVIDER: ${REVERSE_GEOCODING_PROVIDER:-nominatim}
+      REVERSE_GEOCODING_TIMEOUT_SECONDS: ${REVERSE_GEOCODING_TIMEOUT_SECONDS:-3}
+      REVERSE_GEOCODING_USER_AGENT: ${REVERSE_GEOCODING_USER_AGENT:-itinerario-bello-vm/1.0}
+      NOMINATIM_REVERSE_URL: ${NOMINATIM_REVERSE_URL:-https://nominatim.openstreetmap.org/reverse}
+    expose:
+      - "8000"
+    volumes:
+      - fotos_vm:/app/storage/photos
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: itinerario_bello_vm_frontend
+    ports:
+      - "127.0.0.1:${FRONTEND_HTTP_PORT:-8082}:80"
+    volumes:
+      - ./frontend/nginx.vm.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    container_name: itinerario_bello_vm_db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-itinerario_bello}
+      POSTGRES_USER: ${POSTGRES_USER:-bello}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD em .env.production}
+    expose:
+      - "5432"
+    volumes:
+      - postgres_vm:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres_vm:
+    name: itinerario_bello_vm_postgres
+  fotos_vm:
+    name: itinerario_bello_vm_fotos

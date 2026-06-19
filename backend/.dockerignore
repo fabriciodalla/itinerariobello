@@ -1,0 +1,9 @@
+__pycache__/
+.pytest_cache/
+app/tests/reports/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.env
+

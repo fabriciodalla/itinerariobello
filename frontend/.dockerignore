@@ -1,0 +1,8 @@
+node_modules
+dist
+.vite-dev.err.log
+.vite-dev.out.log
+vite-dev.err.log
+vite-dev.log
+vite-mobile.err.log
+vite-mobile.out.log

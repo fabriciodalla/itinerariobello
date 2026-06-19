@@ -1,0 +1,98 @@
+name: itinerario-bello-prod
+
+# =============================================================================
+# Docker Compose de producao — Itinerario Bello
+#
+# Como usar:
+#   1. Preencha .env.production com os valores reais
+#   2. Troque SEU_DOMINIO.COM.BR em frontend/nginx.prod.conf
+#   3. Coloque os certificados TLS em ./certs/fullchain.pem e ./certs/privkey.pem
+#   4. Rode: docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
+#   5. Aplique as migracoes: docker compose -f docker-compose.prod.yml exec api alembic upgrade head
+#   6. Rode o seed: docker compose -f docker-compose.prod.yml exec api python seed_producao.py
+# =============================================================================
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # API — FastAPI + Uvicorn
+  # ---------------------------------------------------------------------------
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: itinerario_bello_api
+    environment:
+      APP_ENV:                          ${APP_ENV:?defina APP_ENV em .env.production}
+      APP_DEBUG:                        ${APP_DEBUG:-false}
+      DATABASE_URL:                     ${DATABASE_URL:?defina DATABASE_URL em .env.production}
+      PHOTOS_DIR:                       ${PHOTOS_DIR:-/app/storage/photos}
+      CORS_ORIGINS:                     ${CORS_ORIGINS:?defina CORS_ORIGINS em .env.production}
+      SECRET_KEY:                       ${SECRET_KEY:?defina SECRET_KEY em .env.production}
+      ACCESS_TOKEN_EXPIRE_MINUTES:      ${ACCESS_TOKEN_EXPIRE_MINUTES:-10080}
+      REVERSE_GEOCODING_ENABLED:        ${REVERSE_GEOCODING_ENABLED:-false}
+      REVERSE_GEOCODING_PROVIDER:       ${REVERSE_GEOCODING_PROVIDER:-nominatim}
+      REVERSE_GEOCODING_TIMEOUT_SECONDS: ${REVERSE_GEOCODING_TIMEOUT_SECONDS:-3}
+      REVERSE_GEOCODING_USER_AGENT:     ${REVERSE_GEOCODING_USER_AGENT:-itinerario-bello-producao/1.0}
+      NOMINATIM_REVERSE_URL:            ${NOMINATIM_REVERSE_URL:-https://nominatim.openstreetmap.org/reverse}
+    expose:
+      - "8000"
+    volumes:
+      # Volume persistente para fotos de hodometro
+      - fotos_producao:/app/storage/photos
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Frontend — React PWA servido pelo nginx
+  # ---------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: itinerario_bello_frontend
+    ports:
+      - "${FRONTEND_HTTP_PORT:-80}:80"
+      - "${FRONTEND_HTTPS_PORT:-443}:443"
+    volumes:
+      # Configuracao nginx de producao (com dominio real)
+      - ./frontend/nginx.prod.conf:/etc/nginx/conf.d/default.conf:ro
+      # Certificados TLS gerados pelo certbot
+      - ./certs/fullchain.pem:/etc/nginx/certs/fullchain.pem:ro
+      - ./certs/privkey.pem:/etc/nginx/certs/privkey.pem:ro
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Banco de dados — PostgreSQL 16
+  # ---------------------------------------------------------------------------
+  db:
+    image: postgres:16-alpine
+    container_name: itinerario_bello_db
+    environment:
+      POSTGRES_DB:       ${POSTGRES_DB:-itinerario_bello}
+      POSTGRES_USER:     ${POSTGRES_USER:-bello}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD em .env.production}
+    expose:
+      - "5432"
+    volumes:
+      # Volume nomeado — dados persistem entre restarts e rebuilds
+      - postgres_producao:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+# =============================================================================
+# Volumes nomeados — persistem mesmo se os containers forem removidos
+# =============================================================================
+volumes:
+  postgres_producao:
+    name: itinerario_bello_postgres_producao
+  fotos_producao:
+    name: itinerario_bello_fotos_producao

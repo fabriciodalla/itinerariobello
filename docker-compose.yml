@@ -1,0 +1,61 @@
+name: itinerario-bello
+
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: itinerario_bello_api
+    environment:
+      APP_ENV: ${APP_ENV:-local}
+      APP_DEBUG: ${APP_DEBUG:-true}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://bello:bello_local_password@db:5432/itinerario_bello}
+      PHOTOS_DIR: ${PHOTOS_DIR:-/app/storage/photos}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:5173,http://localhost:8081,http://localhost:19006,https://192.168.12.201:5173}
+      SECRET_KEY: ${SECRET_KEY:-}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-10080}
+      REVERSE_GEOCODING_ENABLED: ${REVERSE_GEOCODING_ENABLED:-false}
+      REVERSE_GEOCODING_PROVIDER: ${REVERSE_GEOCODING_PROVIDER:-nominatim}
+      REVERSE_GEOCODING_TIMEOUT_SECONDS: ${REVERSE_GEOCODING_TIMEOUT_SECONDS:-3}
+      REVERSE_GEOCODING_USER_AGENT: ${REVERSE_GEOCODING_USER_AGENT:-itinerario-bello-prototipo/0.1}
+      NOMINATIM_REVERSE_URL: ${NOMINATIM_REVERSE_URL:-https://nominatim.openstreetmap.org/reverse}
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      - ./storage/photos:/app/storage/photos
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: itinerario_bello_frontend
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    container_name: itinerario_bello_db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-itinerario_bello}
+      POSTGRES_USER: ${POSTGRES_USER:-bello}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bello_local_password}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
