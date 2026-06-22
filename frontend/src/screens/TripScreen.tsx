@@ -387,12 +387,17 @@ function VehicleOption({
 }
 
 function vehicleAvailabilityLabel(vehicle: Vehicle) {
-  const ownership = vehicle.prioritario
-    ? 'cadastrado para voce'
-    : vehicle.tipo === 'empresa'
-      ? 'empresa disponivel'
-      : 'disponivel'
-  return `${ownership} | ${vehicle.tipo_disponibilidade}`
+  const parts: string[] = []
+  if (vehicle.responsavel_nome) {
+    parts.push(vehicle.responsavel_nome)
+  }
+  if (vehicle.unidade) {
+    parts.push(vehicle.unidade)
+  }
+  if (!parts.length) {
+    parts.push(vehicle.prioritario ? 'cadastrado para voce' : 'disponivel')
+  }
+  return parts.join(' | ')
 }
 
 function CompletionPanel({ onLogout, onNewTrip }: { onLogout: () => void; onNewTrip: () => void }) {

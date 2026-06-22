@@ -36,7 +36,7 @@ O modelo deve garantir rastreabilidade da viagem, vínculo com usuário e veícu
 | `criado_em` | Data/hora | Sim | Auditoria |
 | `atualizado_em` | Data/hora | Sim | Auditoria |
 
-Observação: todos os usuários importados da planilha operacional devem poder registrar viagens. O cargo não substitui o perfil operacional. Supervisores não recebem permissão de fechamento automaticamente; essa permissão fica restrita a coordenador e níveis superiores.
+Observação: usuários importados da planilha operacional com perfil `motorista` devem poder registrar viagens. Administradores, analistas e responsáveis pelo fechamento fora do perfil `motorista` não executam o fluxo operacional de viagem. O cargo não substitui o perfil operacional. Supervisores não recebem permissão de fechamento automaticamente; essa permissão fica restrita a coordenador e níveis superiores.
 
 ## 4. Veiculo
 
@@ -79,6 +79,8 @@ Regras de disponibilidade:
 | `chegada_em` | Data/hora | Não | Definido pelo backend |
 | `criado_em` | Data/hora | Sim | Auditoria |
 | `atualizado_em` | Data/hora | Sim | Auditoria |
+
+Viagens com `status = em_andamento` alimentam a tela inicial `Em rota`, junto dos dados do veículo e do motorista vinculado.
 
 ## 6. FotoHodometro
 

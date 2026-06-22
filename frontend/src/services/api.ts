@@ -12,6 +12,7 @@ import type {
   Trip,
   User,
   Vehicle,
+  VehicleInRoute,
 } from '../types/domain'
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) || ''
@@ -142,6 +143,33 @@ export const api = {
       body: JSON.stringify({ motivo }),
     })
   },
+  adminResetPassword(token: string, usuarioId: string, novaSenha: string) {
+    return request<void>(`/users/${usuarioId}/reset-password`, {
+      method: 'POST',
+      token,
+      body: JSON.stringify({ nova_senha: novaSenha }),
+    })
+  },
+  pendingSignupCount(token: string) {
+    return request<{ count: number }>('/signup-requests/pending-count', { token })
+  },
+  allVehicles(token: string) {
+    return request<Vehicle[]>('/vehicles/all', { token })
+  },
+  patchUser(token: string, usuarioId: string, data: Record<string, unknown>) {
+    return request<User>(`/users/${usuarioId}`, {
+      method: 'PATCH',
+      token,
+      body: JSON.stringify(data),
+    })
+  },
+  patchVehicle(token: string, veiculoId: string, data: Record<string, unknown>) {
+    return request<Vehicle>(`/vehicles/${veiculoId}`, {
+      method: 'PATCH',
+      token,
+      body: JSON.stringify(data),
+    })
+  },
   me(token: string) {
     return request<User>('/auth/me', { token })
   },
@@ -150,6 +178,9 @@ export const api = {
   },
   vehicles(token: string) {
     return request<Vehicle[]>('/vehicles', { token })
+  },
+  vehiclesInRoute(token: string) {
+    return request<VehicleInRoute[]>('/vehicles/in-route', { token })
   },
   trips(token: string) {
     return request<Trip[]>('/trips', { token })

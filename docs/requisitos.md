@@ -10,12 +10,14 @@ O protótipo deve funcionar em servidor acessível pela internet para testes rea
 
 | Perfil | Permissões |
 |---|---|
-| Motorista/Coordenador | Fazer login, selecionar veículo, registrar partida, registrar chegada, editar viagem antes do fechamento fechado e visualizar próprias viagens |
+| Motorista/Coordenador operacional | Fazer login, selecionar veículo, registrar partida, registrar chegada, editar viagem antes do fechamento fechado e visualizar próprias viagens |
 | Responsável pelo fechamento | Visualizar viagens e fechamentos mensais de motoristas subordinados, fechar o consolidado mensal individual e consultar relatórios da equipe. Deve ser coordenador ou cargo acima |
 | Analista | Consultar dados consolidados, gerar relatórios mensais e exportar informações |
-| Administrador | Cadastrar usuários, veículos, vínculos, perfis, permissões e analisar solicitações de cadastro |
+| Administrador | Cadastrar usuários, veículos, vínculos, perfis, permissões e analisar solicitações de cadastro, sem executar o fluxo operacional de viagem |
 
-Todos os usuários importados da planilha operacional devem poder registrar viagens. A permissão de fechamento não é dada automaticamente a supervisores; ela é definida pela flag técnica `pode_aprovar`, começando em coordenador e níveis superiores.
+O fluxo operacional de viagem, incluindo seleção de veículo, partida, chegada e histórico próprio, é exclusivo de usuários com perfil técnico `motorista`. Administradores não registram viagens; acessam cadastros, usuários e consultas/relatórios conforme permissão.
+
+Todos os usuários importados da planilha operacional com perfil `motorista` devem poder registrar viagens. A permissão de fechamento não é dada automaticamente a supervisores; ela é definida pela flag técnica `pode_aprovar`, começando em coordenador e níveis superiores.
 
 ## 3. Requisitos Funcionais
 
@@ -40,6 +42,7 @@ Todos os usuários importados da planilha operacional devem poder registrar viag
 | RF-017 | O sistema deve exportar relatório | Exportação deve gerar arquivo estruturado para análise mensal |
 | RF-018 | O sistema não deve usar aprovação individual de viagem | App não deve consumir `/trips/{id}/approve`; controle mensal ocorre no fechamento aberto/fechado |
 | RF-019 | O usuário externo deve solicitar cadastro pelo login | Solicitação pública registra dados pessoais, cargo, superior e veículo; somente administrador aprova ou reprova antes de criar usuário ativo |
+| RF-020 | O usuário deve visualizar veículos em rota na tela inicial | Tela inicial autenticada lista viagens em andamento com veículo, status em rota, motorista responsável e horário de partida |
 
 ## 4. Requisitos Não Funcionais
 

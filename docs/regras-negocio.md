@@ -38,17 +38,19 @@ O fechamento mensal é sempre por motorista individual, considerando as viagens 
 | RN-016 | Na partida, o veículo selecionado deve ser próprio do usuário ou veículo de empresa ativo | Backend |
 | RN-017 | Veículo próprio deve estar associado a um usuário responsável | Backend |
 | RN-018 | Veículo com itinerário iniciado no dia deve ficar bloqueado para nova partida | Backend |
-| RN-019 | Todos os usuários da planilha operacional devem poder registrar viagens | Backend |
+| RN-019 | Usuários da planilha operacional com perfil `motorista` devem poder registrar viagens | Backend |
 | RN-020 | Fechamento mensal final deve ser feito pelo superior imediato com permissão de fechamento, limitado a coordenador e cargos acima | Backend |
 | RN-021 | O fechamento mensal deve ser feito por motorista individual, não por equipe inteira | Backend |
 | RN-022 | Endpoints legados de aprovação/reprovação, como `/trips/{id}/approve` e `/reports/monthly/closures/{id}/approve`, não devem ser usados pelo fluxo vigente | Backend e app |
 | RN-023 | Endereço de partida e chegada é complemento do GPS e deve ser salvo quando resolvido, sem substituir latitude e longitude | Backend e app |
 | RN-024 | Token de recuperação de senha deve expirar e ser usado uma única vez | Backend |
 | RN-025 | Solicitação pública de cadastro não cria usuário ativo sem aprovação de administrador | Backend |
+| RN-026 | Somente usuários com perfil `motorista` podem iniciar, finalizar ou reenviar viagem; administrador, analista e responsável pelo fechamento não executam o fluxo operacional de viagem | Backend e app |
+| RN-027 | A tela inicial autenticada deve listar veículos em rota a partir de viagens com status `em_andamento`, exibindo veículo, status em rota e motorista responsável pela execução | Backend e app |
 
 ## 4. Fluxo De Validação Da Partida
 
-1. Usuário autenticado seleciona veículo próprio associado a ele ou veículo de empresa ativo.
+1. Motorista autenticado seleciona veículo próprio associado a ele ou veículo de empresa ativo.
 2. Usuário informa km inicial.
 3. Usuário envia foto do hodômetro inicial.
 4. App captura latitude e longitude.
@@ -59,7 +61,7 @@ O fechamento mensal é sempre por motorista individual, considerando as viagens 
 
 ## 5. Fluxo De Validação Da Chegada
 
-1. Usuário seleciona viagem `em_andamento`.
+1. Motorista autenticado seleciona viagem `em_andamento`.
 2. Usuário informa km final.
 3. Usuário envia foto do hodômetro final.
 4. App captura latitude e longitude.
@@ -77,6 +79,13 @@ O fechamento mensal é sempre por motorista individual, considerando as viagens 
 5. Backend registra responsável, data/hora, status `fechado` e observação quando informada.
 6. As viagens do período permanecem com status `concluida`.
 7. Correções só são permitidas enquanto o fechamento mensal estiver `aberto`.
+
+## 6.1 Fluxo De Consulta De Veículos Em Rota
+
+1. Usuário autenticado acessa a tela inicial `Em rota`.
+2. Backend lista viagens com status `em_andamento`.
+3. App exibe placa, modelo, status `Em rota`, motorista e data/hora de partida.
+4. A tela não exibe latitude, longitude, fotos ou endereço; esses dados continuam restritos aos fluxos de viagem, histórico, fechamento e relatório conforme permissão.
 
 ## 7. Campos Editáveis Antes Do Fechamento Mensal Fechado
 

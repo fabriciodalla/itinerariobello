@@ -114,6 +114,7 @@ Devem existir testes para:
 - evidencias de foto, GPS e endereco presentes no item do relatorio mensal e na exportacao;
 - cenario de geocodificacao indisponivel validando `endereco = null`, `endereco_resolvido = false` e texto `Endereco nao resolvido` para exibicao/exportacao.
 - endpoint de consulta de GPS por viagem.
+- endpoint de consulta de veículos em rota com veículo, motorista e autenticação obrigatória.
 
 ## 7. Estrutura Atual
 

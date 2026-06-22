@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 import pytest
 
 from assertions import assert_forbidden, assert_unauthorized, response_items
@@ -72,6 +74,42 @@ def test_analista_nao_inicia_viagem(api_client, analista_auth_headers, test_vehi
     response = post_trip_start(api_client, analista_auth_headers, start_payload(test_vehicle_id))
 
     assert_forbidden(response)
+
+
+@pytest.mark.permissao
+@pytest.mark.viagem
+@pytest.mark.risco(peso=100, criticidade="critica", area="permissao", referencias=("RF-004", "RN-026", "RNF-004"))
+def test_admin_nao_inicia_viagem(api_client, test_vehicle_id):
+    settings = get_settings()
+    db = SessionLocal()
+    admin_id = None
+    try:
+        admin = Usuario(
+            nome="Admin Sem Viagem Teste",
+            email=f"admin.sem.viagem.{uuid4().hex}@bello.local",
+            senha_hash="hash",
+            perfil=PerfilUsuario.admin,
+            cargo="Administrador",
+        )
+        db.add(admin)
+        db.commit()
+        admin_id = admin.id
+
+        token = create_access_token(str(admin_id), settings.secret_key, settings.access_token_expire_minutes)
+        response = post_trip_start(
+            api_client,
+            {"Authorization": f"Bearer {token}"},
+            start_payload(test_vehicle_id),
+        )
+
+        assert_forbidden(response)
+    finally:
+        if admin_id is not None:
+            persisted = db.get(Usuario, admin_id)
+            if persisted is not None:
+                db.delete(persisted)
+                db.commit()
+        db.close()
 
 
 @pytest.mark.permissao

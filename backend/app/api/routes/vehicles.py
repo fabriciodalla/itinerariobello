@@ -12,13 +12,21 @@ from app.db.session import get_db
 from app.models.enums import TipoDisponibilidadeVeiculo, TipoVeiculo
 from app.models.usuario import Usuario
 from app.models.veiculo import Veiculo
-from app.schemas.veiculos import VeiculoCreateRequest, VeiculoResponse
-from app.services.veiculos import listar_veiculos_disponiveis_para_partida
+from app.models.viagem import Viagem
+from app.schemas.veiculos import VeiculoCreateRequest, VeiculoEmRotaResponse, VeiculoPatchRequest, VeiculoResponse
+from app.services.veiculos import listar_veiculos_disponiveis_para_partida, listar_veiculos_em_rota
 
 router = APIRouter(prefix="/vehicles", tags=["vehicles"])
 
 
+def _primeiro_nome(nome: str | None) -> str | None:
+    if not nome:
+        return None
+    return nome.strip().split()[0]
+
+
 def to_response(veiculo: Veiculo, usuario_id) -> VeiculoResponse:
+    responsavel = veiculo.usuario_responsavel
     return VeiculoResponse(
         id=veiculo.id,
         placa=veiculo.placa,
@@ -29,8 +37,22 @@ def to_response(veiculo: Veiculo, usuario_id) -> VeiculoResponse:
         tipo=veiculo.tipo,
         tipo_disponibilidade=veiculo.tipo_disponibilidade,
         usuario_responsavel_id=veiculo.usuario_responsavel_id,
+        responsavel_nome=_primeiro_nome(responsavel.nome) if responsavel else None,
         ativo=veiculo.ativo,
         prioritario=veiculo.usuario_responsavel_id == usuario_id,
+    )
+
+
+def to_em_rota_response(viagem: Viagem) -> VeiculoEmRotaResponse:
+    return VeiculoEmRotaResponse(
+        viagem_id=viagem.id,
+        veiculo_id=viagem.veiculo_id,
+        placa=viagem.veiculo.placa,
+        modelo=viagem.veiculo.modelo,
+        motorista_id=viagem.usuario_id,
+        motorista_nome=viagem.usuario.nome,
+        em_rota=True,
+        partida_em=viagem.partida_em,
     )
 
 
@@ -42,6 +64,14 @@ def list_vehicles(
     hoje = datetime.now(timezone.utc).date()
     veiculos = listar_veiculos_disponiveis_para_partida(db, usuario.id, hoje)
     return [to_response(veiculo, usuario.id) for veiculo in veiculos]
+
+
+@router.get("/in-route", response_model=list[VeiculoEmRotaResponse])
+def list_vehicles_in_route(
+    _: Annotated[Usuario, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> list[VeiculoEmRotaResponse]:
+    return [to_em_rota_response(viagem) for viagem in listar_veiculos_em_rota(db)]
 
 
 @router.post("", response_model=VeiculoResponse, status_code=status.HTTP_201_CREATED)
@@ -84,3 +114,53 @@ def create_vehicle(
     db.commit()
     db.refresh(veiculo)
     return to_response(veiculo, payload.usuario_responsavel_id)
+
+
+@router.get("/all", response_model=list[VeiculoResponse])
+def list_all_vehicles(
+    _: Annotated[Usuario, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+) -> list[VeiculoResponse]:
+    veiculos = list(db.scalars(select(Veiculo).order_by(Veiculo.placa)).all())
+    return [to_response(v, None) for v in veiculos]
+
+
+@router.patch("/{veiculo_id}", response_model=VeiculoResponse)
+def patch_vehicle(
+    veiculo_id: str,
+    payload: VeiculoPatchRequest,
+    _: Annotated[Usuario, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+) -> VeiculoResponse:
+    veiculo = db.get(Veiculo, veiculo_id)
+    if veiculo is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Veiculo nao encontrado.")
+
+    fields = payload.model_fields_set
+
+    if "usuario_responsavel_id" in fields:
+        if payload.usuario_responsavel_id is not None and db.get(Usuario, payload.usuario_responsavel_id) is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Usuario responsavel nao encontrado.",
+            )
+        veiculo.usuario_responsavel_id = payload.usuario_responsavel_id
+
+    if "tipo_disponibilidade" in fields and payload.tipo_disponibilidade is not None:
+        veiculo.tipo_disponibilidade = payload.tipo_disponibilidade
+
+    if "unidade" in fields:
+        veiculo.unidade = payload.unidade.strip() if payload.unidade else None
+
+    if "ativo" in fields and payload.ativo is not None:
+        veiculo.ativo = payload.ativo
+
+    if veiculo.tipo_disponibilidade == TipoDisponibilidadeVeiculo.fixo and veiculo.usuario_responsavel_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Veiculo fixo exige usuario responsavel.",
+        )
+
+    db.commit()
+    db.refresh(veiculo)
+    return to_response(veiculo, None)

@@ -9,6 +9,8 @@
 - O usuário não deve conseguir salvar registro incompleto.
 - A tela de fechamento mensal deve funcionar por motorista individual.
 - Visual deve parecer aplicativo operacional mobile, com botões de toque amplos, navegação inferior fixa, ícones funcionais e indicadores claros de foto, GPS e status.
+- A tela `Em rota` é a primeira tela após login para todos os usuários autenticados.
+- As abas `Viagem` e `Historico` aparecem somente para usuários com perfil `motorista`; administradores não veem o fluxo operacional de viagem.
 - Cores do frontend devem ser padronizadas por tokens: azul royal para ações principais e marca, azul claro/ciano para fundos e bordas de destaque, verde apenas para sucesso/evidência capturada, amarelo para pendências e azul para informação/consulta.
 - Evitar aparência genérica de template: sem cards decorativos excessivos, textos promocionais, gradientes chamativos ou ilustrações sem função no fluxo.
 
@@ -75,6 +77,28 @@ Registrar solicitação pública de novo usuário para análise do administrador
 - Cria solicitação com status `pendente`.
 - Não cria usuário ativo automaticamente.
 - Permite voltar ao login.
+
+## 4.1 Tela Inicial Em Rota
+
+### Objetivo
+
+Mostrar os veículos com rota em andamento.
+
+### Elementos
+
+- Total de veículos em rota.
+- Lista de veículos em rota.
+- Placa e modelo do veículo.
+- Status `Em rota`.
+- Motorista que está executando a rota.
+- Data e hora de partida.
+
+### Critérios De Aceite
+
+- É a primeira tela exibida após login.
+- Lista somente viagens com status `em_andamento`.
+- Não exibe GPS, foto ou endereço.
+- Exige usuário autenticado.
 
 ## 5. Tela Selecionar Carro
 
@@ -259,8 +283,11 @@ Permitir que administrador aprove ou reprove solicitações públicas de cadastr
 
 ## 13. Fluxo Principal Da Viagem
 
+Disponível somente para usuários com perfil `motorista`.
+
 ```txt
 Login
+  -> Em rota
   -> Selecionar carro
   -> Partida
   -> Viagem em andamento

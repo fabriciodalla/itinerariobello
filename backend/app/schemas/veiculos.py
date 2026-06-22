@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -17,8 +18,20 @@ class VeiculoResponse(BaseModel):
     tipo: TipoVeiculo
     tipo_disponibilidade: TipoDisponibilidadeVeiculo
     usuario_responsavel_id: UUID | None = None
+    responsavel_nome: str | None = None
     ativo: bool
     prioritario: bool = False
+
+
+class VeiculoEmRotaResponse(BaseModel):
+    viagem_id: UUID
+    veiculo_id: UUID
+    placa: str
+    modelo: str
+    motorista_id: UUID
+    motorista_nome: str
+    em_rota: bool
+    partida_em: datetime
 
 
 class VeiculoCreateRequest(BaseModel):
@@ -31,3 +44,10 @@ class VeiculoCreateRequest(BaseModel):
     unidade: str | None = Field(default=None, max_length=120)
     categoria: str | None = Field(default=None, max_length=120)
     ativo: bool = True
+
+
+class VeiculoPatchRequest(BaseModel):
+    usuario_responsavel_id: UUID | None = None
+    tipo_disponibilidade: TipoDisponibilidadeVeiculo | None = None
+    unidade: str | None = Field(default=None, max_length=120)
+    ativo: bool | None = None

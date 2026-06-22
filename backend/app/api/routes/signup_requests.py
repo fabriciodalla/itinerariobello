@@ -4,7 +4,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_admin
@@ -48,6 +48,19 @@ def list_signup_requests(
     if status_filter is not None:
         query = query.where(SolicitacaoCadastro.status == status_filter)
     return list(db.scalars(query).all())
+
+
+@router.get("/pending-count")
+def pending_signup_count(
+    _: Annotated[Usuario, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, int]:
+    count = db.scalar(
+        select(func.count())
+        .select_from(SolicitacaoCadastro)
+        .where(SolicitacaoCadastro.status == StatusSolicitacaoCadastro.pendente)
+    ) or 0
+    return {"count": count}
 
 
 @router.post("/{solicitacao_id}/approve", response_model=SignupRequestResponse)

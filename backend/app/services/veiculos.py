@@ -2,7 +2,7 @@ from datetime import date, datetime, time, timedelta, timezone
 from uuid import UUID
 
 from sqlalchemy import Select, case, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.enums import StatusViagem, TipoDisponibilidadeVeiculo
 from app.models.veiculo import Veiculo
@@ -57,3 +57,13 @@ def listar_veiculos_disponiveis_para_partida(
     data_referencia: date,
 ) -> list[Veiculo]:
     return list(db.scalars(consulta_veiculos_disponiveis_para_partida(usuario_id, data_referencia)).all())
+
+
+def listar_veiculos_em_rota(db: Session) -> list[Viagem]:
+    query = (
+        select(Viagem)
+        .options(joinedload(Viagem.veiculo), joinedload(Viagem.usuario))
+        .where(Viagem.status == StatusViagem.em_andamento)
+        .order_by(Viagem.partida_em.desc())
+    )
+    return list(db.scalars(query).all())

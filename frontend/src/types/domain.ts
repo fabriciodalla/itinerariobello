@@ -27,8 +27,20 @@ export interface Vehicle {
   tipo: TipoVeiculo
   tipo_disponibilidade: TipoDisponibilidadeVeiculo
   usuario_responsavel_id: string | null
+  responsavel_nome: string | null
   ativo: boolean
   prioritario: boolean
+}
+
+export interface VehicleInRoute {
+  viagem_id: string
+  veiculo_id: string
+  placa: string
+  modelo: string
+  motorista_id: string
+  motorista_nome: string
+  em_rota: boolean
+  partida_em: string
 }
 
 export interface GpsPayload {

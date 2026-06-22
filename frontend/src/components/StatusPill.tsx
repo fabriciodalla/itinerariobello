@@ -11,6 +11,7 @@ type KnownStatus =
   | 'fechamento'
   | 'disponivel'
   | 'consulta'
+  | 'em_rota'
 
 const LABELS: Record<KnownStatus, string> = {
   em_andamento: 'Em andamento',
@@ -27,6 +28,7 @@ const LABELS: Record<KnownStatus, string> = {
   fechamento: 'Fechamento',
   disponivel: 'Disponivel',
   consulta: 'Consulta',
+  em_rota: 'Em rota',
 }
 
 export function StatusPill({ status }: { status: KnownStatus }) {

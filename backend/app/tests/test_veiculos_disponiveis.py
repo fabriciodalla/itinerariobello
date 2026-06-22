@@ -9,6 +9,7 @@ from app.models.usuario import Usuario
 from app.models.veiculo import Veiculo
 from app.models.viagem import Viagem
 from app.services.veiculos import listar_veiculos_disponiveis_para_partida
+from helpers import create_trip_in_progress
 
 
 @pytest.mark.risco(
@@ -113,6 +114,31 @@ def test_endpoint_lista_veiculos_disponiveis_para_usuario_logado(api_client, mot
 
 @pytest.mark.autenticacao
 @pytest.mark.risco(
+    peso=50,
+    criticidade="alta",
+    area="viagem",
+    referencias=("RF-020", "RN-027"),
+)
+def test_endpoint_lista_veiculos_em_rota_com_motorista(api_client, motorista_auth_headers, test_vehicle_id):
+    trip = create_trip_in_progress(api_client, motorista_auth_headers, test_vehicle_id)
+
+    response = api_client.get("/vehicles/in-route", headers=motorista_auth_headers)
+
+    assert response.status_code == 200, response.text
+    veiculos = response_items(response)
+    item = next((candidate for candidate in veiculos if candidate["viagem_id"] == trip["id"]), None)
+    assert item is not None
+    assert item["veiculo_id"] == trip["veiculo_id"]
+    assert item["placa"] == trip["veiculo_placa"]
+    assert item["modelo"] == trip["veiculo_modelo"]
+    assert item["motorista_id"] == trip["usuario_id"]
+    assert item["motorista_nome"] == trip["usuario_nome"]
+    assert item["em_rota"] is True
+    assert item["partida_em"]
+
+
+@pytest.mark.autenticacao
+@pytest.mark.risco(
     peso=100,
     criticidade="critica",
     area="autenticacao",
@@ -120,5 +146,18 @@ def test_endpoint_lista_veiculos_disponiveis_para_usuario_logado(api_client, mot
 )
 def test_endpoint_veiculos_sem_token_retorna_401(api_client):
     response = api_client.get("/vehicles")
+
+    assert_unauthorized(response)
+
+
+@pytest.mark.autenticacao
+@pytest.mark.risco(
+    peso=100,
+    criticidade="critica",
+    area="autenticacao",
+    referencias=("RN-001", "RN-027", "RNF-002"),
+)
+def test_endpoint_veiculos_em_rota_sem_token_retorna_401(api_client):
+    response = api_client.get("/vehicles/in-route")
 
     assert_unauthorized(response)

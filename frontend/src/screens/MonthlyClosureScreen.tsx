@@ -76,7 +76,7 @@ export function MonthlyClosureScreen({ token, user, onMessage }: MonthlyClosureS
       const url = URL.createObjectURL(blob)
       const anchor = document.createElement('a')
       anchor.href = url
-      anchor.download = `relatorio-${ano}-${String(mes).padStart(2, '0')}.csv`
+      anchor.download = `relatorio-${ano}-${String(mes).padStart(2, '0')}.pdf`
       anchor.click()
       URL.revokeObjectURL(url)
     } catch (error) {

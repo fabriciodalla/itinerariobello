@@ -119,6 +119,7 @@ Reprovação:
 | Método | Endpoint | Finalidade | Perfil mínimo |
 |---|---|---|---|
 | `GET` | `/vehicles` | Listar veículos disponíveis | Motorista |
+| `GET` | `/vehicles/in-route` | Listar veículos em rota com motorista da viagem em andamento | Autenticado |
 | `POST` | `/vehicles` | Cadastrar veículo | Admin |
 | `GET` | `/vehicles/{id}` | Detalhar veículo | Motorista |
 | `PATCH` | `/vehicles/{id}` | Atualizar veículo | Admin |
@@ -131,6 +132,31 @@ Na listagem para partida, a API deve retornar apenas veículos permitidos para o
 - veículos sem itinerário iniciado no dia.
 
 Quando um veículo `empresa` tiver `usuario_responsavel_id`, ele deve aparecer priorizado para o responsável usual, mas continua compartilhável quando estiver disponível.
+
+Consulta de veículos em rota:
+
+```txt
+GET /vehicles/in-route
+```
+
+Resposta:
+
+```json
+[
+  {
+    "viagem_id": "uuid-da-viagem",
+    "veiculo_id": "uuid-do-veiculo",
+    "placa": "ABC1234",
+    "modelo": "Onix",
+    "motorista_id": "uuid-do-motorista",
+    "motorista_nome": "Nome do Motorista",
+    "em_rota": true,
+    "partida_em": "2026-05-01T08:00:00Z"
+  }
+]
+```
+
+Essa consulta considera apenas viagens com status `em_andamento` e não retorna GPS, fotos ou endereço.
 
 Campos principais de veículo:
 
@@ -155,6 +181,8 @@ Campos principais de veículo:
 | `PATCH` | `/trips/{id}` | Editar dados permitidos antes do fechamento fechado | Motorista |
 | `POST` | `/trips/{id}/submit` | Enviar ou reenviar viagem completa para o fechamento mensal | Motorista |
 | `GET` | `/trips/{id}/gps` | Listar coordenadas GPS da viagem | Motorista |
+
+Partida, chegada e reenvio são ações operacionais exclusivas de usuários com perfil `motorista`. Administrador, analista e responsável pelo fechamento fora do perfil `motorista` recebem `403` nesses endpoints; administradores e analistas continuam podendo consultar a base pelos relatórios conforme permissão.
 
 `GET /trips` deve retornar, para usuários sem permissão de fechamento, somente viagens próprias. Usuários com poder de fechamento podem receber também viagens de subordinados conforme permissão, e administradores/analistas podem consultar a base conforme perfil.
 

@@ -69,7 +69,7 @@ def parse_json_form(raw_payload: str, schema: type[BaseModel]):
 
 
 def ensure_can_register_trip(usuario: Usuario) -> None:
-    if usuario.perfil == PerfilUsuario.analista:
+    if usuario.perfil != PerfilUsuario.motorista:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Usuario sem permissao para registrar viagem.")
 
 
@@ -341,6 +341,7 @@ def finish_trip(
     payload: Annotated[str, Form(...)],
     foto_hodometro: Annotated[UploadFile | None, File()] = None,
 ) -> TripResponse:
+    ensure_can_register_trip(usuario)
     if foto_hodometro is None:
         raise validation_error("Foto do hodometro final e obrigatoria.")
     viagem = get_trip_or_404(db, viagem_id)
@@ -416,6 +417,7 @@ def submit_trip(
     usuario: Annotated[Usuario, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ) -> TripResponse:
+    ensure_can_register_trip(usuario)
     viagem = get_trip_or_404(db, viagem_id)
     ensure_trip_owner(viagem, usuario)
     if viagem.km_final is None or viagem.chegada_em is None or not (viagem.rota_utilizada or "").strip():
@@ -688,21 +690,27 @@ def monthly_report_export(
     mes: Annotated[int, Query(ge=1, le=12)],
     motorista_id: Annotated[UUID | None, Query()] = None,
 ) -> Response:
-    output = StringIO()
-    writer = csv.DictWriter(
-        output,
-        fieldnames=REPORT_EXPORT_FIELDNAMES,
-        extrasaction="ignore",
-    )
-    writer.writeheader()
-    for viagem in db.scalars(monthly_query_for_user(db, ano, mes, usuario, motorista_id)).all():
-        item = report_item(db, viagem)
-        writer.writerow(report_export_row(item))
+    from app.services.pdf_report import generate_itinerary_pdf
+
+    viagens = list(db.scalars(monthly_query_for_user(db, ano, mes, usuario, motorista_id)).all())
+
+    photos_map: dict[str, dict[str, FotoHodometro]] = {}
+    gps_map: dict[str, dict[str, LocalizacaoGPS]] = {}
+    for viagem in viagens:
+        p_by_type = latest_photos_by_type(db, viagem.id)
+        photos_map[str(viagem.id)] = {t.value: f for t, f in p_by_type.items()}
+        g_by_type = latest_gps_by_type(db, viagem.id)
+        gps_map[str(viagem.id)] = {t.value: g for t, g in g_by_type.items()}
+
+    nomes = {v.usuario.nome for v in viagens if v.usuario}
+    colaborador_nome = next(iter(nomes)) if len(nomes) == 1 else "Todos"
+
+    pdf_bytes = generate_itinerary_pdf(colaborador_nome, ano, mes, viagens, photos_map, gps_map)
 
     return Response(
-        content=output.getvalue(),
-        media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="relatorio-{ano}-{mes:02d}.csv"'},
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="relatorio-{ano}-{mes:02d}.pdf"'},
     )
 
 
