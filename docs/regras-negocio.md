@@ -135,6 +135,8 @@ O frontend também deve ter endpoint específico para consultar o GPS de uma via
 
 Latitude e longitude continuam sendo a evidência obrigatória de localização. O endereço é aproximado, depende de geocodificação reversa e não deve bloquear partida, chegada ou fechamento quando não puder ser resolvido. Quando o endereço não for resolvido, a API deve manter `endereco = null` e entregar um texto de exibição como `"Endereco nao resolvido"` junto do status `endereco_resolvido = false`.
 
+Administradores podem consultar e exportar o relatório mensal filtrando por veículo alocado. Nessa visão, o fechamento mensal continua sendo por motorista, mas a consulta lista todos os itinerários do veículo no mês e destaca o vendedor que executou cada itinerário.
+
 ## 9. Fluxo De Recuperação De Senha
 
 1. Usuário informa e-mail na tela de login.

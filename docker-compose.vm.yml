@@ -1,17 +1,13 @@
 name: itinerario-bello-vm
 
 # =============================================================================
-# Docker Compose para VM compartilhada
-#
-# Uso esperado:
-#   - O proxy/Nginx principal da VM fica responsavel por HTTPS em 80/443.
-#   - Este stack publica somente o frontend HTTP em 127.0.0.1:8082.
-#   - API e PostgreSQL ficam privados na rede Docker.
+# Docker Compose para servidor Ubuntu externo — porta 8002
 #
 # Comandos:
 #   docker compose --env-file .env.production -f docker-compose.vm.yml config
 #   docker compose --env-file .env.production -f docker-compose.vm.yml up -d --build
 #   docker compose --env-file .env.production -f docker-compose.vm.yml exec api alembic upgrade head
+#   docker compose --env-file .env.production -f docker-compose.vm.yml exec api python seed_producao.py
 # =============================================================================
 
 services:
@@ -44,6 +40,8 @@ services:
       SMTP_USE_TLS: ${SMTP_USE_TLS:-true}
       SMTP_USE_SSL: ${SMTP_USE_SSL:-false}
       SMTP_TIMEOUT_SECONDS: ${SMTP_TIMEOUT_SECONDS:-10}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
     expose:
       - "8000"
     volumes:
@@ -52,6 +50,11 @@ services:
       db:
         condition: service_healthy
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   frontend:
     build:
@@ -59,12 +62,17 @@ services:
       dockerfile: Dockerfile
     container_name: itinerario_bello_vm_frontend
     ports:
-      - "127.0.0.1:${FRONTEND_HTTP_PORT:-8082}:80"
+      - "${FRONTEND_HTTP_PORT:-8002}:80"
     volumes:
       - ./frontend/nginx.vm.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - api
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   db:
     image: postgres:16-alpine
@@ -83,6 +91,11 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   postgres_vm:

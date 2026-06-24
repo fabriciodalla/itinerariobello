@@ -27,16 +27,14 @@ import type { SignupRequestPayload, Trip, User, Vehicle, VehicleInRoute } from '
 
 type AppView = 'em_rota' | 'viagem' | 'historico' | 'fechamento' | 'cadastros' | 'usuarios'
 
-const TOKEN_STORAGE_KEY = 'bello.itinerario.token'
-
 function App() {
-  const [token, setToken] = useState(() => localStorage.getItem(TOKEN_STORAGE_KEY) ?? '')
+  const [token, setToken] = useState('')
   const [user, setUser] = useState<User | null>(null)
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [vehiclesInRoute, setVehiclesInRoute] = useState<VehicleInRoute[]>([])
   const [trips, setTrips] = useState<Trip[]>([])
   const [view, setView] = useState<AppView>('viagem')
-  const [loading, setLoading] = useState(Boolean(token))
+  const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [pendingCount, setPendingCount] = useState(0)
 
@@ -79,9 +77,7 @@ function App() {
         }
         const isMainAdmin = currentUser.email === 'admin@belloalimentos.com.br'
         setView(isMainAdmin ? 'em_rota' : 'viagem')
-      } catch (error) {
-        setMessage(describeError(error))
-        localStorage.removeItem(TOKEN_STORAGE_KEY)
+      } catch {
         setToken('')
         setUser(null)
       } finally {
@@ -92,18 +88,14 @@ function App() {
   )
 
   useEffect(() => {
-    if (token) {
-      const timeout = window.setTimeout(() => void loadWorkspace(token), 0)
-      return () => window.clearTimeout(timeout)
-    }
-  }, [loadWorkspace, token])
+    void loadWorkspace('')
+  }, [])
 
   async function handleLogin(email: string, senha: string) {
     setLoading(true)
     setMessage('')
     try {
       const response = await api.login(email, senha)
-      localStorage.setItem(TOKEN_STORAGE_KEY, response.access_token)
       setToken(response.access_token)
       await loadWorkspace(response.access_token)
     } catch (error) {
@@ -130,7 +122,7 @@ function App() {
   const [showChangePassword, setShowChangePassword] = useState(false)
 
   function handleLogout() {
-    localStorage.removeItem(TOKEN_STORAGE_KEY)
+    api.logout(token).catch(() => {})
     setToken('')
     setUser(null)
     setVehicles([])
@@ -140,14 +132,20 @@ function App() {
   }
 
   async function refreshData() {
-    if (token) {
-      await loadWorkspace(token)
-    }
+    await loadWorkspace(token)
   }
 
   const navItemCount = 1 + (canSeeVehiclesInRoute ? 1 : 0) + (canRegisterTrips ? 2 : 0) + (canManageSignupRequests ? 2 : 0)
 
-  if (!token || !user) {
+  if (loading && !user) {
+    return (
+      <main className="app-shell" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh' }}>
+        <Loader2 className="spin" size={40} />
+      </main>
+    )
+  }
+
+  if (!user) {
     return (
       <LoginScreen
         loading={loading}
@@ -165,7 +163,7 @@ function App() {
       <header className="topbar">
         <div className="topbar-user">
           <span className="brand-mark" aria-hidden="true">
-            <Route />
+            <img className="brand-logo" src="/bello-b.png" alt="" />
           </span>
           <div>
             <span className="eyebrow">Itinerario Bello</span>

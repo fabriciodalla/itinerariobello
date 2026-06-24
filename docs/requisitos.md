@@ -13,7 +13,7 @@ O protótipo deve funcionar em servidor acessível pela internet para testes rea
 | Motorista/Coordenador operacional | Fazer login, selecionar veículo, registrar partida, registrar chegada, editar viagem antes do fechamento fechado e visualizar próprias viagens |
 | Responsável pelo fechamento | Visualizar viagens e fechamentos mensais de motoristas subordinados, fechar o consolidado mensal individual e consultar relatórios da equipe. Deve ser coordenador ou cargo acima |
 | Analista | Consultar dados consolidados, gerar relatórios mensais e exportar informações |
-| Administrador | Cadastrar usuários, veículos, vínculos, perfis, permissões e analisar solicitações de cadastro, sem executar o fluxo operacional de viagem |
+| Administrador | Cadastrar usuários, veículos, vínculos, perfis, permissões, analisar solicitações de cadastro e consultar relatório mensal por veículo alocado, sem executar o fluxo operacional de viagem |
 
 O fluxo operacional de viagem, incluindo seleção de veículo, partida, chegada e histórico próprio, é exclusivo de usuários com perfil técnico `motorista`. Administradores não registram viagens; acessam cadastros, usuários e consultas/relatórios conforme permissão.
 
@@ -38,8 +38,8 @@ Todos os usuários importados da planilha operacional com perfil `motorista` dev
 | RF-013 | O usuário deve visualizar histórico de viagens | Lista mostra somente viagens próprias para usuários sem permissão de fechamento, com status, veículo, datas, km e opção de visualizar fotos do hodômetro |
 | RF-014 | O responsável autorizado deve fechar o fechamento mensal de um motorista individual | Ação registra responsável, data/hora, status e observação quando informada |
 | RF-015 | O sistema deve permitir correção antes do fechamento mensal fechado | Viagens podem ser corrigidas enquanto o consolidado mensal estiver aberto |
-| RF-016 | O sistema deve gerar relatório mensal | Relatório contém usuário, veículo, datas, km, fotos, GPS, endereço, rota, status da viagem e status do fechamento; cada item deve trazer diretamente foto inicial/final e GPS com endereço de partida/chegada |
-| RF-017 | O sistema deve exportar relatório | Exportação deve gerar arquivo estruturado para análise mensal |
+| RF-016 | O sistema deve gerar relatório mensal | Relatório contém usuário, veículo, datas, km, fotos, GPS, endereço, rota, status da viagem e status do fechamento; cada item deve trazer diretamente foto inicial/final e GPS com endereço de partida/chegada; administrador pode filtrar por veículo alocado para ver todos os itinerários do veículo no mês |
+| RF-017 | O sistema deve exportar relatório | Exportação deve gerar arquivo estruturado para análise mensal; quando filtrada por veículo, deve focar no veículo e identificar o vendedor que executou cada itinerário |
 | RF-018 | O sistema não deve usar aprovação individual de viagem | App não deve consumir `/trips/{id}/approve`; controle mensal ocorre no fechamento aberto/fechado |
 | RF-019 | O usuário externo deve solicitar cadastro pelo login | Solicitação pública registra dados pessoais, cargo, superior e veículo; somente administrador aprova ou reprova antes de criar usuário ativo |
 | RF-020 | O usuário deve visualizar veículos em rota na tela inicial | Tela inicial autenticada lista viagens em andamento com veículo, status em rota, motorista responsável e horário de partida |

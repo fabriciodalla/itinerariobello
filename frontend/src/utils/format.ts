@@ -16,6 +16,7 @@ export function formatDateTime(value: string | null | undefined) {
     return '-'
   }
   return new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Cuiaba',
     day: '2-digit',
     month: '2-digit',
     hour: '2-digit',

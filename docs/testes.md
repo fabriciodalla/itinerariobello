@@ -111,6 +111,7 @@ Devem existir testes para:
 - fechamento mensal aberto e fechado por motorista;
 - endpoints legados de aprovacao/reprovacao retornando `410 Gone`;
 - consulta e exportacao de relatorio mensal.
+- consulta e exportacao de relatorio mensal por veículo para administrador.
 - evidencias de foto, GPS e endereco presentes no item do relatorio mensal e na exportacao;
 - cenario de geocodificacao indisponivel validando `endereco = null`, `endereco_resolvido = false` e texto `Endereco nao resolvido` para exibicao/exportacao.
 - endpoint de consulta de GPS por viagem.

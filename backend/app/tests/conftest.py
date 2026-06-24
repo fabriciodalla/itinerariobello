@@ -274,6 +274,46 @@ def api_client():
         yield client
 
 
+def _clear_test_rate_limiter() -> None:
+    try:
+        from app.core.rate_limit import limiter
+    except Exception:
+        return
+
+    storage = getattr(limiter, "_storage", None)
+    reset = getattr(storage, "reset", None)
+    if callable(reset):
+        reset()
+        return
+
+    for attr_name in ("storage", "events", "expirations"):
+        attr = getattr(storage, attr_name, None)
+        clear = getattr(attr, "clear", None)
+        if callable(clear):
+            clear()
+
+
+def _clear_client_cookies(client) -> None:
+    cookies = getattr(client, "cookies", None)
+    clear = getattr(cookies, "clear", None)
+    if callable(clear):
+        clear()
+
+
+@pytest.fixture(autouse=True)
+def limpar_estado_http_de_teste(request):
+    if "api_client" not in request.fixturenames:
+        yield
+        return
+
+    client = request.getfixturevalue("api_client")
+    _clear_client_cookies(client)
+    _clear_test_rate_limiter()
+    yield
+    _clear_client_cookies(client)
+    _clear_test_rate_limiter()
+
+
 @pytest.fixture(autouse=True)
 def limpar_registros_transacionais_de_teste():
     if os.getenv("TEST_DB_CLEANUP_DISABLED") == "1":

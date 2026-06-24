@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import csv
 from datetime import date, datetime, timezone
 from decimal import Decimal
-from io import StringIO
 from uuid import uuid4
 
 import pytest
@@ -30,6 +28,13 @@ from helpers import create_trip_ready_for_monthly_closure, post_trip_finish, pos
 def current_report_params() -> dict[str, int]:
     today = date.today()
     return {"ano": today.year, "mes": today.month}
+
+
+def assert_pdf_response(response) -> None:
+    assert response.status_code == 200, response.text
+    assert response.content.startswith(b"%PDF"), response.content[:40]
+    assert "application/pdf" in response.headers.get("content-type", "")
+    assert "text/html" not in response.headers.get("content-type", "")
 
 
 def assert_report_item_contains_required_fields(item: dict) -> None:
@@ -273,27 +278,14 @@ def test_analista_exporta_relatorio_mensal(
         headers=analista_auth_headers,
     )
 
-    assert response.status_code == 200, response.text
-    assert response.content
-    assert "text/html" not in response.headers.get("content-type", "")
-
-    rows = list(csv.DictReader(StringIO(response.text)))
-    trip_row = next((row for row in rows if row.get("id") == trip["id"]), None)
-    assert trip_row is not None, response.text
-    assert trip_row["foto_hodometro_inicial_url"].startswith("/photos/")
-    assert trip_row["foto_hodometro_final_url"].startswith("/photos/")
-    assert trip_row["gps_partida_latitude"]
-    assert trip_row["gps_partida_longitude"]
-    assert trip_row["gps_partida_endereco"]
-    assert trip_row["gps_chegada_latitude"]
-    assert trip_row["gps_chegada_longitude"]
-    assert trip_row["gps_chegada_endereco"]
+    assert trip["id"]
+    assert_pdf_response(response)
 
 
 @pytest.mark.relatorio
 @pytest.mark.gps
 @pytest.mark.risco(peso=50, criticidade="alta", area="relatorio", referencias=("RF-016", "RN-023"))
-def test_exportacao_mensal_informa_endereco_nao_resolvido_quando_indisponivel(
+def test_relatorio_mensal_informa_endereco_nao_resolvido_quando_indisponivel(
     api_client,
     motorista_auth_headers,
     analista_auth_headers,
@@ -313,19 +305,179 @@ def test_exportacao_mensal_informa_endereco_nao_resolvido_quando_indisponivel(
     assert finish_response.status_code == 200, finish_response.text
 
     response = api_client.get(
-        "/reports/monthly/export",
+        "/reports/monthly",
         params=current_report_params(),
         headers=analista_auth_headers,
     )
 
     assert response.status_code == 200, response.text
-    rows = list(csv.DictReader(StringIO(response.text)))
-    trip_row = next((row for row in rows if row.get("id") == trip_id), None)
-    assert trip_row is not None, response.text
-    assert trip_row["gps_partida_endereco"] == "Endereco nao resolvido"
-    assert trip_row["gps_partida_endereco_resolvido"] == "False"
-    assert trip_row["gps_chegada_endereco"] == "Endereco nao resolvido"
-    assert trip_row["gps_chegada_endereco_resolvido"] == "False"
+    items = response_items(response)
+    trip_item = next((item for item in items if item.get("id") == trip_id), None)
+    assert trip_item is not None, response.text
+    assert trip_item["gps_partida"]["endereco"] is None
+    assert trip_item["gps_partida"]["endereco_exibicao"] == "Endereco nao resolvido"
+    assert trip_item["gps_partida"]["endereco_resolvido"] is False
+    assert trip_item["gps_chegada"]["endereco"] is None
+    assert trip_item["gps_chegada"]["endereco_exibicao"] == "Endereco nao resolvido"
+    assert trip_item["gps_chegada"]["endereco_resolvido"] is False
+
+
+@pytest.mark.relatorio
+@pytest.mark.risco(peso=50, criticidade="alta", area="relatorio", referencias=("RF-016", "RF-017"))
+def test_admin_consulta_e_exporta_relatorio_mensal_por_veiculo_alocado(api_client):
+    db = SessionLocal()
+    created = []
+    try:
+        settings = get_settings()
+        suffix = uuid4().hex[:6].upper()
+        admin = Usuario(
+            nome="Admin Relatorio Veiculo",
+            email=f"admin.relatorio.veiculo.{suffix.lower()}@bello.local",
+            senha_hash="hash",
+            perfil=PerfilUsuario.admin,
+        )
+        vendedor = Usuario(
+            nome="Vendedor Veiculo Alocado",
+            email=f"vendedor.veiculo.{suffix.lower()}@bello.local",
+            senha_hash="hash",
+            perfil=PerfilUsuario.motorista,
+        )
+        outro_vendedor = Usuario(
+            nome="Outro Vendedor Veiculo",
+            email=f"outro.vendedor.veiculo.{suffix.lower()}@bello.local",
+            senha_hash="hash",
+            perfil=PerfilUsuario.motorista,
+        )
+        db.add_all([admin, vendedor, outro_vendedor])
+        db.flush()
+        created.extend([admin, vendedor, outro_vendedor])
+
+        veiculo_alocado = Veiculo(
+            placa=f"AL{suffix[:5]}",
+            modelo="Veiculo Alocado",
+            tipo=TipoVeiculo.empresa,
+            tipo_disponibilidade=TipoDisponibilidadeVeiculo.alocado,
+        )
+        outro_veiculo = Veiculo(
+            placa=f"AO{suffix[:5]}",
+            modelo="Outro Alocado",
+            tipo=TipoVeiculo.empresa,
+            tipo_disponibilidade=TipoDisponibilidadeVeiculo.alocado,
+        )
+        db.add_all([veiculo_alocado, outro_veiculo])
+        db.flush()
+        created.extend([veiculo_alocado, outro_veiculo])
+
+        params_base = current_report_params()
+        partida_em = datetime(params_base["ano"], params_base["mes"], 5, 8, tzinfo=timezone.utc)
+        chegada_em = datetime(params_base["ano"], params_base["mes"], 5, 18, tzinfo=timezone.utc)
+        viagem_do_veiculo = Viagem(
+            usuario_id=vendedor.id,
+            veiculo_id=veiculo_alocado.id,
+            status=StatusViagem.concluida,
+            km_inicial=Decimal("1000.00"),
+            km_final=Decimal("1060.00"),
+            km_rodado=Decimal("60.00"),
+            rota_utilizada="Cliente A -> Cliente B",
+            partida_em=partida_em,
+            chegada_em=chegada_em,
+        )
+        viagem_de_outro_veiculo = Viagem(
+            usuario_id=outro_vendedor.id,
+            veiculo_id=outro_veiculo.id,
+            status=StatusViagem.concluida,
+            km_inicial=Decimal("2000.00"),
+            km_final=Decimal("2030.00"),
+            km_rodado=Decimal("30.00"),
+            rota_utilizada="Cliente C",
+            partida_em=partida_em,
+            chegada_em=chegada_em,
+        )
+        db.add_all([viagem_do_veiculo, viagem_de_outro_veiculo])
+        db.commit()
+        created.extend([viagem_do_veiculo, viagem_de_outro_veiculo])
+
+        headers = {
+            "Authorization": (
+                "Bearer "
+                + create_access_token(
+                    str(admin.id),
+                    settings.secret_key,
+                    settings.access_token_expire_minutes,
+                )
+            )
+        }
+        params = {**params_base, "veiculo_id": str(veiculo_alocado.id)}
+
+        response = api_client.get("/reports/monthly", params=params, headers=headers)
+
+        assert response.status_code == 200, response.text
+        items = response_items(response)
+        assert [item["id"] for item in items] == [str(viagem_do_veiculo.id)]
+        assert items[0]["veiculo_id"] == str(veiculo_alocado.id)
+        assert items[0]["usuario_nome"] == vendedor.nome
+
+        export_response = api_client.get("/reports/monthly/export", params=params, headers=headers)
+        assert_pdf_response(export_response)
+        assert f"relatorio-veiculo-{veiculo_alocado.placa}" in export_response.headers.get("content-disposition", "")
+    finally:
+        db.rollback()
+        for item in reversed(created):
+            persisted = db.get(type(item), item.id)
+            if persisted is not None:
+                db.delete(persisted)
+        db.commit()
+        db.close()
+
+
+@pytest.mark.relatorio
+@pytest.mark.permissao
+@pytest.mark.risco(peso=100, criticidade="critica", area="permissao", referencias=("RF-016", "RNF-004"))
+def test_analista_nao_consulta_relatorio_mensal_por_veiculo(api_client):
+    db = SessionLocal()
+    created = []
+    try:
+        settings = get_settings()
+        suffix = uuid4().hex[:6].upper()
+        analista = Usuario(
+            nome="Analista Sem Relatorio Veiculo",
+            email=f"analista.relatorio.veiculo.{suffix.lower()}@bello.local",
+            senha_hash="hash",
+            perfil=PerfilUsuario.analista,
+        )
+        veiculo = Veiculo(
+            placa=f"PV{suffix[:5]}",
+            modelo="Veiculo Restrito",
+            tipo=TipoVeiculo.empresa,
+            tipo_disponibilidade=TipoDisponibilidadeVeiculo.alocado,
+        )
+        db.add_all([analista, veiculo])
+        db.commit()
+        created.extend([analista, veiculo])
+
+        headers = {
+            "Authorization": (
+                "Bearer "
+                + create_access_token(
+                    str(analista.id),
+                    settings.secret_key,
+                    settings.access_token_expire_minutes,
+                )
+            )
+        }
+        params = {**current_report_params(), "veiculo_id": str(veiculo.id)}
+
+        response = api_client.get("/reports/monthly", params=params, headers=headers)
+
+        assert_forbidden(response)
+    finally:
+        db.rollback()
+        for item in reversed(created):
+            persisted = db.get(type(item), item.id)
+            if persisted is not None:
+                db.delete(persisted)
+        db.commit()
+        db.close()
 
 
 @pytest.mark.relatorio

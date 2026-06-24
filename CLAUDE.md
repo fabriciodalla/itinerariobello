@@ -184,6 +184,8 @@ Definir em `.env` (copiar de `.env.example`):
 | `FRONTEND_BASE_URL` | URL pública usada nos links de recuperação de senha | sim |
 | `SMTP_HOST` | Servidor SMTP para recuperação de senha | sim |
 | `SMTP_FROM_EMAIL` | Remetente dos e-mails de recuperação | sim |
+| `COOKIE_SECURE` | `true` em produção (HTTPS), `false` em local | sim |
+| `COOKIE_DOMAIN` | Domínio do cookie (omitir usa o host atual) | não |
 
 Para testes, definir também:
 `TEST_MOTORISTA_EMAIL` · `TEST_MOTORISTA_PASSWORD` · `TEST_APROVADOR_EMAIL` · `TEST_APROVADOR_PASSWORD` · `TEST_ANALISTA_EMAIL` · `TEST_ANALISTA_PASSWORD` · `TEST_VEICULO_ID`

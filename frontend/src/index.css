@@ -161,6 +161,13 @@ svg {
   height: 23px;
 }
 
+.brand-logo {
+  display: block;
+  width: 30px;
+  height: 34px;
+  object-fit: contain;
+}
+
 .eyebrow {
   display: block;
   color: var(--muted);
@@ -844,6 +851,10 @@ textarea:focus {
 }
 
 .segmented-control button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   flex: 0 0 auto;
   min-height: 40px;
   border: 1px solid var(--border);
@@ -1333,6 +1344,11 @@ textarea:focus {
   .brand-mark {
     width: 40px;
     height: 40px;
+  }
+
+  .brand-logo {
+    width: 27px;
+    height: 31px;
   }
 
   .topbar-actions {

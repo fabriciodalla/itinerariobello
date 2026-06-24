@@ -12,6 +12,7 @@
 - A tela `Em rota` é a primeira tela após login para todos os usuários autenticados.
 - As abas `Viagem` e `Historico` aparecem somente para usuários com perfil `motorista`; administradores não veem o fluxo operacional de viagem.
 - Cores do frontend devem ser padronizadas por tokens: azul royal para ações principais e marca, azul claro/ciano para fundos e bordas de destaque, verde apenas para sucesso/evidência capturada, amarelo para pendências e azul para informação/consulta.
+- O topo autenticado, a tela de login e o ícone instalável do PWA devem usar o `B` da marca Bello, evitando ícones genéricos como identificação principal do aplicativo.
 - Evitar aparência genérica de template: sem cards decorativos excessivos, textos promocionais, gradientes chamativos ou ilustrações sem função no fluxo.
 
 ## 2. Tela Login
@@ -239,12 +240,18 @@ Permitir correções antes do fechamento mensal fechado.
 
 Permitir que o superior consulte o consolidado mensal de um motorista individual.
 
+Para administradores, a tela também permite consultar o relatório mensal por veículo alocado, mantendo o fechamento mensal por motorista como regra de controle.
+
 ### Elementos
 
 - Filtros por mês, motorista, veículo e status.
+- Alternância administrativa entre relatório por motorista e relatório por veículo.
+- Seletor de veículo alocado quando o foco for veículo.
 - Lista de motoristas subordinados com status do fechamento no mês.
 - Resumo do motorista selecionado com total de viagens no período e status `aberto` ou `fechado`.
+- Resumo do veículo selecionado com total de viagens e KM total no período.
 - Lista de todas as viagens do motorista no mês.
+- Na visão por veículo, lista de todos os itinerários do veículo no mês e destaca o vendedor que executou cada itinerário.
 - Detalhes de cada viagem: km, fotos, GPS, endereço resolvido ou indicador `Endereco nao resolvido`, rota, veículo, data e status.
 - Evidências de cada viagem disponíveis diretamente no item do relatório: foto inicial, foto final, GPS e endereço de partida e GPS e endereço de chegada.
 - Exportação para relatório, quando permitido.
@@ -257,6 +264,7 @@ Permitir que o superior consulte o consolidado mensal de um motorista individual
 - Tela não oferece botões de aprovar ou reprovar fechamento mensal.
 - Fechamento mensal `fechado` registra responsável, data/hora, status e observação quando informada.
 - O fechamento mensal é feito por motorista individual, não por equipe inteira.
+- Administrador consegue selecionar um veículo alocado e exportar PDF focado no veículo, com vendedor por itinerário e fotos quando disponíveis.
 
 ## 12. Tela Cadastros
 

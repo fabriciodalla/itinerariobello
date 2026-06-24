@@ -45,6 +45,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers,
+    credentials: 'include',
   })
 
   if (!response.ok) {
@@ -94,6 +95,12 @@ export const api = {
     return request<LoginResponse>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, senha }),
+    })
+  },
+  logout(token: string) {
+    return request<void>('/auth/logout', {
+      method: 'POST',
+      token,
     })
   },
   changePassword(token: string, senhaAtual: string, novaSenha: string) {
@@ -230,10 +237,13 @@ export const api = {
       body: JSON.stringify(data),
     })
   },
-  monthlyReport(token: string, ano: number, mes: number, motoristaId?: string) {
+  monthlyReport(token: string, ano: number, mes: number, motoristaId?: string, veiculoId?: string) {
     const params = new URLSearchParams({ ano: String(ano), mes: String(mes) })
     if (motoristaId) {
       params.set('motorista_id', motoristaId)
+    }
+    if (veiculoId) {
+      params.set('veiculo_id', veiculoId)
     }
     return request<ReportItem[]>(`/reports/monthly?${params.toString()}`, { token })
   },
@@ -251,10 +261,13 @@ export const api = {
       body: JSON.stringify({ observacao }),
     })
   },
-  async exportMonthly(token: string, ano: number, mes: number, motoristaId?: string) {
+  async exportMonthly(token: string, ano: number, mes: number, motoristaId?: string, veiculoId?: string) {
     const params = new URLSearchParams({ ano: String(ano), mes: String(mes) })
     if (motoristaId) {
       params.set('motorista_id', motoristaId)
+    }
+    if (veiculoId) {
+      params.set('veiculo_id', veiculoId)
     }
     return fetchBlob(`/reports/monthly/export?${params.toString()}`, token)
   },
@@ -265,7 +278,8 @@ export const api = {
 
 async function fetchBlob(path: string, token: string) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    credentials: 'include',
   })
   if (!response.ok) {
     throw new ApiError(response.status, `Erro ${response.status} na API.`, await response.text())

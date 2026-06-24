@@ -9,7 +9,7 @@ name: itinerario-bello-prod
 #   3. Coloque os certificados TLS em ./certs/fullchain.pem e ./certs/privkey.pem
 #   4. Rode: docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
 #   5. Aplique as migracoes: docker compose -f docker-compose.prod.yml exec api alembic upgrade head
-#   6. Rode o seed: docker compose -f docker-compose.prod.yml exec api python seed_producao.py
+#   6. Rode o seed: docker compose --env-file .env.production -f docker-compose.prod.yml exec api python seed_producao.py
 # =============================================================================
 
 services:
@@ -46,6 +46,8 @@ services:
       SMTP_USE_TLS:                     ${SMTP_USE_TLS:-true}
       SMTP_USE_SSL:                     ${SMTP_USE_SSL:-false}
       SMTP_TIMEOUT_SECONDS:             ${SMTP_TIMEOUT_SECONDS:-10}
+      COOKIE_SECURE:                    ${COOKIE_SECURE:-true}
+      COOKIE_DOMAIN:                    ${COOKIE_DOMAIN:-}
     expose:
       - "8000"
     volumes:

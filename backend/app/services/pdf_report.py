@@ -6,10 +6,13 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
+from zoneinfo import ZoneInfo
 
 from fpdf import FPDF
 from PIL import Image
+
+from app.core.config import get_settings
 
 if TYPE_CHECKING:
     from app.models.foto_hodometro import FotoHodometro
@@ -39,6 +42,9 @@ FONT_SIZE = 6
 PHOTO_MAX_W = 90
 PHOTO_MAX_H = 70
 
+LOGO_PATH = Path(__file__).resolve().parent.parent / "assets" / "bello-logo.png"
+ReportFocus = Literal["motorista", "veiculo"]
+
 NOISE_PARTS = {
     "brasil", "brazil", "regiao sul", "regiao sudeste", "regiao norte",
     "regiao nordeste", "regiao centro-oeste",
@@ -52,16 +58,24 @@ def _fmt_km(value: Decimal | None) -> str:
     return f"{int(value):,}".replace(",", ".")
 
 
+def _local_tz() -> ZoneInfo:
+    return ZoneInfo(get_settings().app_timezone)
+
+
+def _to_local(dt: datetime) -> datetime:
+    return dt.astimezone(_local_tz())
+
+
 def _fmt_date(dt: datetime | None) -> str:
     if dt is None:
         return ""
-    return dt.strftime("%d/%m/%Y")
+    return _to_local(dt).strftime("%d/%m/%Y")
 
 
 def _fmt_datetime(dt: datetime | None) -> str:
     if dt is None:
         return ""
-    return dt.strftime("%d/%m/%Y %H:%M:%S")
+    return _to_local(dt).strftime("%d/%m/%Y %H:%M:%S")
 
 
 def _safe(text: str | None) -> str:
@@ -94,6 +108,12 @@ def _veiculo_label(viagem: Viagem) -> str:
     return "Nao informado"
 
 
+def _motorista_label(viagem: Viagem) -> str:
+    if viagem.usuario and viagem.usuario.nome:
+        return viagem.usuario.nome
+    return "Nao informado"
+
+
 def _resize_photo(photo_path: str) -> BytesIO | None:
     path = Path(photo_path)
     if not path.exists():
@@ -111,19 +131,20 @@ def _resize_photo(photo_path: str) -> BytesIO | None:
 
 
 def generate_itinerary_pdf(
-    colaborador_nome: str,
+    entidade_nome: str,
     ano: int,
     mes: int,
     viagens: list[Viagem],
     photos_map: dict[str, dict[str, FotoHodometro]],
     gps_map: dict[str, dict[str, LocalizacaoGPS]],
+    focus: ReportFocus = "motorista",
 ) -> bytes:
     pdf = FPDF(orientation="L", unit="mm", format="A4")
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
 
-    _draw_header(pdf, colaborador_nome, ano, mes)
-    _draw_table(pdf, viagens, gps_map)
+    _draw_header(pdf, entidade_nome, ano, mes, focus)
+    _draw_table(pdf, viagens, gps_map, focus)
 
     km_total = sum((v.km_rodado or Decimal("0") for v in viagens), Decimal("0"))
     pdf.ln(6)
@@ -131,32 +152,36 @@ def generate_itinerary_pdf(
     pdf.set_text_color(*BRAND_COLOR)
     pdf.cell(0, 8, _safe(f"KM rodado total no periodo: {_fmt_km(km_total)}"))
 
-    _draw_photos_section(pdf, viagens, photos_map)
+    _draw_photos_section(pdf, viagens, photos_map, focus)
 
     return bytes(pdf.output())
 
 
-def _draw_header(pdf: FPDF, colaborador_nome: str, ano: int, mes: int) -> None:
-    pdf.set_font("Helvetica", "B", 28)
-    pdf.set_text_color(*BRAND_COLOR)
-    pdf.cell(50, 18, _safe("Bello"), new_x="RIGHT", new_y="TOP")
+def _draw_header(pdf: FPDF, entidade_nome: str, ano: int, mes: int, focus: ReportFocus) -> None:
+    logo_h = 18
+    if LOGO_PATH.exists():
+        img = Image.open(LOGO_PATH)
+        w, h = img.size
+        logo_w = logo_h * (w / h)
+        pdf.image(str(LOGO_PATH), x=pdf.l_margin, y=pdf.get_y(), w=logo_w, h=logo_h)
+    else:
+        logo_w = 50
+        pdf.set_font("Helvetica", "B", 28)
+        pdf.set_text_color(*BRAND_COLOR)
+        pdf.cell(logo_w, logo_h, _safe("Bello"), new_x="RIGHT", new_y="TOP")
 
-    pdf.set_font("Helvetica", "", 8)
-    pdf.set_text_color(*GRAY)
-    pdf.cell(0, 6, _safe("ALIMENTOS"), new_x="LMARGIN", new_y="NEXT")
-
-    pdf.ln(2)
-    x_start = 60
+    x_start = pdf.l_margin + logo_w + 6
 
     pdf.set_font("Helvetica", "B", 22)
     pdf.set_text_color(*BRAND_COLOR)
-    pdf.set_x(x_start)
+    pdf.set_xy(x_start, pdf.get_y())
     pdf.cell(0, 12, _safe("CONTROLE DE ITINERARIO"), new_x="LMARGIN", new_y="NEXT")
 
     pdf.set_font("Helvetica", "", 10)
     pdf.set_text_color(*BLACK)
     pdf.set_x(x_start)
-    pdf.cell(0, 6, _safe(f"Colaborador: {colaborador_nome}"), new_x="LMARGIN", new_y="NEXT")
+    entity_label = "Veiculo" if focus == "veiculo" else "Colaborador"
+    pdf.cell(0, 6, _safe(f"{entity_label}: {entidade_nome}"), new_x="LMARGIN", new_y="NEXT")
 
     now = datetime.now(timezone.utc)
     pdf.set_x(x_start)
@@ -168,11 +193,13 @@ def _draw_header(pdf: FPDF, colaborador_nome: str, ano: int, mes: int) -> None:
     pdf.ln(4)
 
 
-def _draw_table_header(pdf: FPDF) -> None:
+def _draw_table_header(pdf: FPDF, focus: ReportFocus = "motorista") -> None:
     pdf.set_font("Helvetica", "B", FONT_SIZE)
     pdf.set_fill_color(*TABLE_HEADER_BG)
     pdf.set_text_color(*WHITE)
     for i, header in enumerate(COL_HEADERS):
+        if i == 0 and focus == "veiculo":
+            header = "Vendedor"
         pdf.cell(COL_WIDTHS[i], ROW_H + 1, _safe(header), border=1, fill=True, align="C")
     pdf.ln(ROW_H + 1)
 
@@ -181,8 +208,9 @@ def _draw_table(
     pdf: FPDF,
     viagens: list[Viagem],
     gps_map: dict[str, dict[str, LocalizacaoGPS]],
+    focus: ReportFocus,
 ) -> None:
-    _draw_table_header(pdf)
+    _draw_table_header(pdf, focus)
 
     pdf.set_font("Helvetica", "", FONT_SIZE)
     pdf.set_text_color(*BLACK)
@@ -196,7 +224,7 @@ def _draw_table(
         endereco_chegada = gps_chegada.endereco if gps_chegada else None
 
         values = [
-            _veiculo_label(viagem),
+            _motorista_label(viagem) if focus == "veiculo" else _veiculo_label(viagem),
             _fmt_date(viagem.partida_em),
             str(idx + 1),
             _address_no_country(endereco_saida),
@@ -219,7 +247,7 @@ def _draw_table(
 
         if pdf.get_y() + cell_h > pdf.h - 15:
             pdf.add_page()
-            _draw_table_header(pdf)
+            _draw_table_header(pdf, focus)
             pdf.set_font("Helvetica", "", FONT_SIZE)
             pdf.set_text_color(*BLACK)
 
@@ -242,6 +270,7 @@ def _draw_photos_section(
     pdf: FPDF,
     viagens: list[Viagem],
     photos_map: dict[str, dict[str, FotoHodometro]],
+    focus: ReportFocus,
 ) -> None:
     has_any_photo = any(photos_map.get(str(v.id)) for v in viagens)
     if not has_any_photo:
@@ -265,12 +294,12 @@ def _draw_photos_section(
         if pdf.get_y() + needed_h > pdf.h - 15:
             pdf.add_page()
 
-        veiculo = _veiculo_label(viagem)
+        entidade = _motorista_label(viagem) if focus == "veiculo" else _veiculo_label(viagem)
         pdf.set_font("Helvetica", "B", 11)
         pdf.set_text_color(*BLACK)
         pdf.cell(
             0, 7,
-            _safe(f"{_fmt_date(viagem.partida_em)} | Itinerario {idx + 1} | {veiculo}"),
+            _safe(f"{_fmt_date(viagem.partida_em)} | Itinerario {idx + 1} | {entidade}"),
             new_x="LMARGIN", new_y="NEXT",
         )
         pdf.set_font("Helvetica", "", 9)

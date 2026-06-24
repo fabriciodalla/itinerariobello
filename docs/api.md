@@ -47,6 +47,7 @@ O login retorna um token Bearer com expiração configurável:
 ```
 
 Endpoints protegidos devem receber o cabeçalho `Authorization: Bearer <token>`.
+Quando cabeçalho Bearer e cookie de sessão estiverem presentes ao mesmo tempo, o cabeçalho Bearer tem precedência.
 
 Recuperação de senha:
 
@@ -286,7 +287,7 @@ Resposta:
 | Método | Endpoint | Finalidade | Perfil mínimo |
 |---|---|---|---|
 | `GET` | `/reports/monthly` | Consultar viagens do relatório mensal | Analista ou responsável autorizado |
-| `GET` | `/reports/monthly/export` | Exportar relatório mensal | Analista ou responsável autorizado |
+| `GET` | `/reports/monthly/export` | Exportar relatório mensal em PDF | Analista ou responsável autorizado |
 | `GET` | `/reports/monthly/closures` | Listar fechamentos mensais por motorista no período | Analista ou responsável autorizado |
 | `GET` | `/reports/monthly/closures/{motorista_id}` | Detalhar fechamento mensal de um motorista | Analista ou responsável autorizado |
 | `POST` | `/reports/monthly/closures/{motorista_id}/close` | Fechar consolidado mensal do motorista | Superior com permissão de fechamento |
@@ -357,12 +358,14 @@ Consulta:
 
 ```txt
 GET /reports/monthly?ano=2026&mes=5&motorista_id=uuid-opcional
+GET /reports/monthly?ano=2026&mes=5&veiculo_id=uuid-do-veiculo
 ```
 
 Exportação:
 
 ```txt
 GET /reports/monthly/export?ano=2026&mes=5&motorista_id=uuid-opcional
+GET /reports/monthly/export?ano=2026&mes=5&veiculo_id=uuid-do-veiculo
 ```
 
 Parâmetros:
@@ -372,6 +375,7 @@ Parâmetros:
 | `ano` | Inteiro | Sim | Ano do relatório |
 | `mes` | Inteiro | Sim | Mês do relatório, de `1` a `12` |
 | `motorista_id` | UUID | Não | Filtra um motorista individual |
+| `veiculo_id` | UUID | Não | Filtra um veículo para relatório administrativo por veículo; uso restrito a administrador |
 
 Item de resposta:
 
@@ -440,7 +444,9 @@ Item de resposta:
 }
 ```
 
-O item do relatório mensal deve entregar as evidências diretamente no JSON. Fotos devem trazer metadados e `download_url`; GPS deve trazer coordenadas, `endereco`, `endereco_resolvido` e `endereco_exibicao` de partida e chegada. Na exportação mensal, as colunas `gps_partida_endereco` e `gps_chegada_endereco` usam o endereço resolvido quando disponível ou `"Endereco nao resolvido"` quando indisponível; as colunas `gps_partida_endereco_resolvido` e `gps_chegada_endereco_resolvido` indicam se o valor é um endereço real resolvido.
+O item do relatório mensal deve entregar as evidências diretamente no JSON. Fotos devem trazer metadados e `download_url`; GPS deve trazer coordenadas, `endereco`, `endereco_resolvido` e `endereco_exibicao` de partida e chegada. Na exportação mensal em PDF, os locais de saída e chegada usam o endereço resolvido quando disponível; quando indisponível, permanecem sem endereço textual e as coordenadas continuam como evidência.
+
+Quando `veiculo_id` é informado, apenas administradores podem consultar/exportar. A exportação em PDF passa a focar no veículo selecionado e a primeira coluna da tabela identifica o vendedor responsável por cada itinerário do dia. As fotos do hodômetro permanecem incluídas quando os arquivos estiverem disponíveis.
 
 ## 13. Contrato Para Fechamento Mensal
 

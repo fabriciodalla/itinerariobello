@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
-import { ArrowLeft, Loader2, LogIn, Mail, Send, ShieldCheck, UserPlus } from 'lucide-react'
+import { ArrowLeft, Loader2, LogIn, Mail, Send, UserPlus } from 'lucide-react'
 import type { SignupRequestPayload } from '../types/domain'
 
 type LoginMode = 'login' | 'forgot' | 'reset' | 'signup'
@@ -153,7 +153,9 @@ export function LoginScreen({
     <main className="login-screen">
       <section className="login-panel">
         <div className="brand-lockup">
-          <ShieldCheck />
+          <span className="brand-mark" aria-hidden="true">
+            <img className="brand-logo" src="/bello-b.png" alt="" />
+          </span>
           <div>
             <span className="eyebrow">Bello Alimentos</span>
             <h1>Controle Itinerario</h1>

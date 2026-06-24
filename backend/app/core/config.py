@@ -8,7 +8,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     app_name: str = "Controle Itinerario Comercial Bello"
     app_env: str = Field(default="local", alias="APP_ENV")
-    app_debug: bool = Field(default=True, alias="APP_DEBUG")
+    app_debug: bool = Field(default=False, alias="APP_DEBUG")
     database_url: str = Field(
         default="postgresql+psycopg://bello:bello_local_password@db:5432/itinerario_bello",
         alias="DATABASE_URL",
@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     smtp_use_tls: bool = Field(default=True, alias="SMTP_USE_TLS")
     smtp_use_ssl: bool = Field(default=False, alias="SMTP_USE_SSL")
     smtp_timeout_seconds: float = Field(default=10.0, alias="SMTP_TIMEOUT_SECONDS")
+    cookie_secure: bool = Field(default=False, alias="COOKIE_SECURE")
+    cookie_domain: str | None = Field(default=None, alias="COOKIE_DOMAIN")
+    app_timezone: str = Field(default="America/Cuiaba", alias="APP_TIMEZONE")
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

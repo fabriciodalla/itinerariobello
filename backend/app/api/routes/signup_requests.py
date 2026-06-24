@@ -3,11 +3,12 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_admin
+from app.core.rate_limit import limiter
 from app.db.session import get_db
 from app.models.enums import StatusSolicitacaoCadastro
 from app.models.solicitacao_cadastro import SolicitacaoCadastro
@@ -31,7 +32,9 @@ def _get_or_404(db: Session, solicitacao_id: UUID) -> SolicitacaoCadastro:
 
 
 @router.post("", response_model=SignupRequestResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("3/minute")
 def create_public_signup_request(
+    request: Request,
     payload: SignupRequestCreateRequest,
     db: Annotated[Session, Depends(get_db)],
 ) -> SolicitacaoCadastro:

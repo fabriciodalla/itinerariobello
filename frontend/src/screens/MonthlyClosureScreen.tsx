@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Calendar, Check, Download, Edit2, Eye, FileText, Loader2, MapPin, ShieldCheck, X } from 'lucide-react'
+import { Calendar, CarFront, Check, Download, Edit2, Eye, FileText, Loader2, MapPin, ShieldCheck, UserRound, X } from 'lucide-react'
 import { StatusPill } from '../components/StatusPill'
 import { ApiError, api } from '../services/api'
-import type { GpsEvidence, MonthlyClosure, ReportItem, User } from '../types/domain'
-import { formatDateTime, formatKm } from '../utils/format'
+import type { GpsEvidence, MonthlyClosure, ReportItem, User, Vehicle } from '../types/domain'
+import { formatDateTime, formatKm, numberValue } from '../utils/format'
 
 interface MonthlyClosureScreenProps {
   token: string
@@ -18,11 +18,16 @@ interface TripEditState {
   saving: boolean
 }
 
+type ReportMode = 'motorista' | 'veiculo'
+
 export function MonthlyClosureScreen({ token, user, onMessage }: MonthlyClosureScreenProps) {
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7))
   const [reports, setReports] = useState<ReportItem[]>([])
   const [closures, setClosures] = useState<MonthlyClosure[]>([])
+  const [vehicles, setVehicles] = useState<Vehicle[]>([])
+  const [reportMode, setReportMode] = useState<ReportMode>('motorista')
   const [selectedMotoristaId, setSelectedMotoristaId] = useState('')
+  const [selectedVehicleId, setSelectedVehicleId] = useState('')
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [editingTripId, setEditingTripId] = useState<string | null>(null)
@@ -31,6 +36,8 @@ export function MonthlyClosureScreen({ token, user, onMessage }: MonthlyClosureS
   const [ano, mes] = month.split('-').map(Number)
   const canReview = user.pode_aprovar || user.perfil === 'analista' || user.perfil === 'admin'
   const canEditTrips = user.pode_aprovar || user.perfil === 'admin'
+  const canReportByVehicle = user.perfil === 'admin'
+  const isVehicleMode = reportMode === 'veiculo'
 
   const motoristas = useMemo(() => {
     const byId = new Map<string, string>()
@@ -40,17 +47,32 @@ export function MonthlyClosureScreen({ token, user, onMessage }: MonthlyClosureS
     return Array.from(byId, ([id, nome]) => ({ id, nome }))
   }, [reports])
 
+  const allocatedVehicles = useMemo(
+    () => vehicles.filter((vehicle) => vehicle.tipo_disponibilidade === 'alocado'),
+    [vehicles],
+  )
+  const selectedVehicle = allocatedVehicles.find((vehicle) => vehicle.id === selectedVehicleId) ?? null
+
   const selectedReports = selectedMotoristaId
     ? reports.filter((item) => item.usuario_id === selectedMotoristaId)
     : reports
-  const selectedClosure = closures.find((item) => item.motorista_id === selectedMotoristaId) ?? null
+  const visibleReports = isVehicleMode ? reports : selectedReports
+  const selectedClosure = !isVehicleMode
+    ? closures.find((item) => item.motorista_id === selectedMotoristaId) ?? null
+    : null
+  const kmTotal = visibleReports.reduce((total, item) => total + numberValue(item.km_rodado), 0)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
+      if (isVehicleMode && !selectedVehicleId) {
+        setReports([])
+        setClosures([])
+        return
+      }
       const [monthlyReports, monthlyClosures] = await Promise.all([
-        api.monthlyReport(token, ano, mes),
-        api.monthlyClosures(token, ano, mes),
+        api.monthlyReport(token, ano, mes, undefined, isVehicleMode ? selectedVehicleId : undefined),
+        isVehicleMode ? Promise.resolve([]) : api.monthlyClosures(token, ano, mes),
       ])
       setReports(monthlyReports)
       setClosures(monthlyClosures)
@@ -59,7 +81,19 @@ export function MonthlyClosureScreen({ token, user, onMessage }: MonthlyClosureS
     } finally {
       setLoading(false)
     }
-  }, [ano, mes, onMessage, token])
+  }, [ano, isVehicleMode, mes, onMessage, selectedVehicleId, token])
+
+  useEffect(() => {
+    if (!canReportByVehicle) {
+      return
+    }
+    api
+      .allVehicles(token)
+      .then(setVehicles)
+      .catch((error) => {
+        onMessage(error instanceof ApiError ? error.message : 'Nao foi possivel carregar os veiculos.')
+      })
+  }, [canReportByVehicle, onMessage, token])
 
   useEffect(() => {
     if (!canReview) {
@@ -70,13 +104,24 @@ export function MonthlyClosureScreen({ token, user, onMessage }: MonthlyClosureS
   }, [canReview, load])
 
   async function exportCsv() {
+    if (isVehicleMode && !selectedVehicleId) {
+      onMessage('Selecione um veiculo alocado para exportar o relatorio.')
+      return
+    }
     setSaving(true)
     try {
-      const blob = await api.exportMonthly(token, ano, mes, selectedMotoristaId || undefined)
+      const blob = await api.exportMonthly(
+        token,
+        ano,
+        mes,
+        isVehicleMode ? undefined : selectedMotoristaId || undefined,
+        isVehicleMode ? selectedVehicleId : undefined,
+      )
       const url = URL.createObjectURL(blob)
       const anchor = document.createElement('a')
       anchor.href = url
-      anchor.download = `relatorio-${ano}-${String(mes).padStart(2, '0')}.pdf`
+      const prefix = isVehicleMode && selectedVehicle ? `relatorio-veiculo-${selectedVehicle.placa}` : 'relatorio'
+      anchor.download = `${prefix}-${ano}-${String(mes).padStart(2, '0')}.pdf`
       anchor.click()
       URL.revokeObjectURL(url)
     } catch (error) {
@@ -108,6 +153,14 @@ export function MonthlyClosureScreen({ token, user, onMessage }: MonthlyClosureS
   function cancelEdit() {
     setEditingTripId(null)
     setEditState(null)
+  }
+
+  function changeReportMode(mode: ReportMode) {
+    setReportMode(mode)
+    setSelectedMotoristaId('')
+    setSelectedVehicleId('')
+    setReports([])
+    setClosures([])
   }
 
   async function saveEdit(tripId: string) {
@@ -146,33 +199,78 @@ export function MonthlyClosureScreen({ token, user, onMessage }: MonthlyClosureS
         <FileText />
         <h2>Fechamento mensal</h2>
       </div>
+      {canReportByVehicle ? (
+        <div className="segmented-control" aria-label="Foco do relatorio">
+          <button
+            type="button"
+            className={reportMode === 'motorista' ? 'active' : ''}
+            onClick={() => changeReportMode('motorista')}
+          >
+            <UserRound />
+            <span>Por motorista</span>
+          </button>
+          <button
+            type="button"
+            className={reportMode === 'veiculo' ? 'active' : ''}
+            onClick={() => changeReportMode('veiculo')}
+          >
+            <CarFront />
+            <span>Por veiculo</span>
+          </button>
+        </div>
+      ) : null}
       <div className="filter-row">
         <label>
           <span>Mes</span>
           <input type="month" value={month} onChange={(event) => setMonth(event.target.value)} />
         </label>
-        <label>
-          <span>Motorista</span>
-          <select value={selectedMotoristaId} onChange={(event) => setSelectedMotoristaId(event.target.value)}>
-            <option value="">Todos</option>
-            {motoristas.map((motorista) => (
-              <option key={motorista.id} value={motorista.id}>
-                {motorista.nome}
-              </option>
-            ))}
-          </select>
-        </label>
+        {isVehicleMode ? (
+          <label>
+            <span>Veiculo alocado</span>
+            <select value={selectedVehicleId} onChange={(event) => setSelectedVehicleId(event.target.value)}>
+              <option value="">Selecione</option>
+              {allocatedVehicles.map((vehicle) => (
+                <option key={vehicle.id} value={vehicle.id}>
+                  {vehicle.placa} | {vehicle.modelo}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <label>
+            <span>Motorista</span>
+            <select value={selectedMotoristaId} onChange={(event) => setSelectedMotoristaId(event.target.value)}>
+              <option value="">Todos</option>
+              {motoristas.map((motorista) => (
+                <option key={motorista.id} value={motorista.id}>
+                  {motorista.nome}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
 
       <div className="closure-summary">
         <div>
           <span>Total viagens</span>
-          <strong>{selectedClosure?.total_viagens ?? selectedReports.length}</strong>
+          <strong>{isVehicleMode ? visibleReports.length : selectedClosure?.total_viagens ?? visibleReports.length}</strong>
         </div>
         <div>
-          <span>Status mensal</span>
-          <StatusPill status={selectedClosure?.status ?? 'aberto'} />
+          <span>KM total</span>
+          <strong>{formatKm(isVehicleMode ? kmTotal : selectedClosure?.km_total ?? kmTotal)}</strong>
         </div>
+        {isVehicleMode ? (
+          <div>
+            <span>Veiculo</span>
+            <strong>{selectedVehicle ? `${selectedVehicle.placa} | ${selectedVehicle.modelo}` : '-'}</strong>
+          </div>
+        ) : (
+          <div>
+            <span>Status mensal</span>
+            <StatusPill status={selectedClosure?.status ?? 'aberto'} />
+          </div>
+        )}
       </div>
 
       <div className="action-row">
@@ -187,14 +285,14 @@ export function MonthlyClosureScreen({ token, user, onMessage }: MonthlyClosureS
       </div>
 
       <div className="item-list">
-        {selectedReports.map((item) => (
+        {visibleReports.map((item) => (
           <article className="list-card" key={item.id}>
             <div className="list-card-main">
               <div>
                 <strong>
-                  {item.veiculo_placa} | {item.veiculo_modelo}
+                  {isVehicleMode ? item.usuario_nome : `${item.veiculo_placa} | ${item.veiculo_modelo}`}
                 </strong>
-                <span>{item.usuario_nome}</span>
+                <span>{isVehicleMode ? `${item.veiculo_placa} | ${item.veiculo_modelo}` : item.usuario_nome}</span>
               </div>
               <div className="list-card-actions">
                 <StatusPill status={item.status} />
@@ -293,7 +391,11 @@ export function MonthlyClosureScreen({ token, user, onMessage }: MonthlyClosureS
           </article>
         ))}
       </div>
-      {!selectedReports.length ? <div className="empty-state">Nenhum item no periodo.</div> : null}
+      {!visibleReports.length ? (
+        <div className="empty-state">
+          {isVehicleMode && !selectedVehicleId ? 'Selecione um veiculo alocado para consultar.' : 'Nenhum item no periodo.'}
+        </div>
+      ) : null}
     </section>
   )
 }

@@ -118,6 +118,13 @@ def get_user_or_404(db: Session, usuario_id: UUID) -> Usuario:
     return usuario
 
 
+def get_vehicle_or_404(db: Session, veiculo_id: UUID) -> Veiculo:
+    veiculo = db.get(Veiculo, veiculo_id)
+    if veiculo is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Veiculo nao encontrado.")
+    return veiculo
+
+
 def create_gps(viagem_id: UUID, tipo: TipoLocalizacaoGPS, gps: GPSPayload) -> LocalizacaoGPS:
     settings = get_settings()
     endereco = normalizar_endereco(gps.endereco) or reverse_geocode(gps.latitude, gps.longitude, settings)
@@ -517,7 +524,12 @@ def download_photo(
     return FileResponse(path, media_type=foto.mime_type)
 
 
-def monthly_query(ano: int, mes: int, motorista_id: UUID | None = None):
+def monthly_query(
+    ano: int,
+    mes: int,
+    motorista_id: UUID | None = None,
+    veiculo_id: UUID | None = None,
+):
     inicio = datetime(ano, mes, 1, tzinfo=timezone.utc)
     if mes == 12:
         fim = datetime(ano + 1, 1, 1, tzinfo=timezone.utc)
@@ -526,6 +538,8 @@ def monthly_query(ano: int, mes: int, motorista_id: UUID | None = None):
     query = select(Viagem).where(Viagem.partida_em >= inicio).where(Viagem.partida_em < fim)
     if motorista_id is not None:
         query = query.where(Viagem.usuario_id == motorista_id)
+    if veiculo_id is not None:
+        query = query.where(Viagem.veiculo_id == veiculo_id)
     return query.order_by(Viagem.partida_em)
 
 
@@ -542,15 +556,29 @@ def ensure_can_view_monthly_report(motorista: Usuario, usuario: Usuario) -> None
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Usuario sem permissao para este relatorio mensal.")
 
 
+def ensure_can_view_vehicle_monthly_report(veiculo: Veiculo, usuario: Usuario) -> None:
+    if usuario.perfil == PerfilUsuario.admin:
+        return
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Somente administrador pode consultar relatorio mensal por veiculo.",
+    )
+
+
 def monthly_query_for_user(
     db: Session,
     ano: int,
     mes: int,
     usuario: Usuario,
     motorista_id: UUID | None = None,
+    veiculo_id: UUID | None = None,
 ):
     ensure_report_access(usuario)
-    query = monthly_query(ano, mes, motorista_id)
+    query = monthly_query(ano, mes, motorista_id, veiculo_id)
+
+    if veiculo_id is not None:
+        veiculo = get_vehicle_or_404(db, veiculo_id)
+        ensure_can_view_vehicle_monthly_report(veiculo, usuario)
 
     if motorista_id is not None:
         motorista = get_user_or_404(db, motorista_id)
@@ -611,8 +639,9 @@ def monthly_report(
     ano: Annotated[int, Query(ge=2000, le=2100)],
     mes: Annotated[int, Query(ge=1, le=12)],
     motorista_id: Annotated[UUID | None, Query()] = None,
+    veiculo_id: Annotated[UUID | None, Query()] = None,
 ) -> list[ReportItemResponse]:
-    viagens = list(db.scalars(monthly_query_for_user(db, ano, mes, usuario, motorista_id)).all())
+    viagens = list(db.scalars(monthly_query_for_user(db, ano, mes, usuario, motorista_id, veiculo_id)).all())
     return [report_item(db, viagem) for viagem in viagens]
 
 
@@ -689,10 +718,11 @@ def monthly_report_export(
     ano: Annotated[int, Query(ge=2000, le=2100)],
     mes: Annotated[int, Query(ge=1, le=12)],
     motorista_id: Annotated[UUID | None, Query()] = None,
+    veiculo_id: Annotated[UUID | None, Query()] = None,
 ) -> Response:
     from app.services.pdf_report import generate_itinerary_pdf
 
-    viagens = list(db.scalars(monthly_query_for_user(db, ano, mes, usuario, motorista_id)).all())
+    viagens = list(db.scalars(monthly_query_for_user(db, ano, mes, usuario, motorista_id, veiculo_id)).all())
 
     photos_map: dict[str, dict[str, FotoHodometro]] = {}
     gps_map: dict[str, dict[str, LocalizacaoGPS]] = {}
@@ -702,15 +732,24 @@ def monthly_report_export(
         g_by_type = latest_gps_by_type(db, viagem.id)
         gps_map[str(viagem.id)] = {t.value: g for t, g in g_by_type.items()}
 
-    nomes = {v.usuario.nome for v in viagens if v.usuario}
-    colaborador_nome = next(iter(nomes)) if len(nomes) == 1 else "Todos"
+    focus = "motorista"
+    entidade_nome = "Todos"
+    filename_prefix = "relatorio"
+    if veiculo_id is not None:
+        veiculo = get_vehicle_or_404(db, veiculo_id)
+        entidade_nome = f"{veiculo.placa} / {veiculo.modelo}" if veiculo.modelo else veiculo.placa
+        focus = "veiculo"
+        filename_prefix = f"relatorio-veiculo-{veiculo.placa}"
+    else:
+        nomes = {v.usuario.nome for v in viagens if v.usuario}
+        entidade_nome = next(iter(nomes)) if len(nomes) == 1 else "Todos"
 
-    pdf_bytes = generate_itinerary_pdf(colaborador_nome, ano, mes, viagens, photos_map, gps_map)
+    pdf_bytes = generate_itinerary_pdf(entidade_nome, ano, mes, viagens, photos_map, gps_map, focus=focus)
 
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="relatorio-{ano}-{mes:02d}.pdf"'},
+        headers={"Content-Disposition": f'attachment; filename="{filename_prefix}-{ano}-{mes:02d}.pdf"'},
     )
 
 

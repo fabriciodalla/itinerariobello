@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.core.config import get_settings
+from app.core.rate_limit import limiter
 from app.core.security import create_access_token, hash_password, verify_password
 from app.db.session import get_db
 from app.models.usuario import Usuario
@@ -24,9 +25,42 @@ from app.services.password_reset import build_reset_url, create_password_reset_t
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+COOKIE_NAME = "access_token"
+
+
+def _set_auth_cookie(response: Response, token: str, max_age_seconds: int) -> None:
+    settings = get_settings()
+    response.set_cookie(
+        key=COOKIE_NAME,
+        value=token,
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite="lax",
+        path="/",
+        max_age=max_age_seconds,
+        domain=settings.cookie_domain,
+    )
+
+
+def _clear_auth_cookie(response: Response) -> None:
+    settings = get_settings()
+    response.delete_cookie(
+        key=COOKIE_NAME,
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite="lax",
+        path="/",
+        domain=settings.cookie_domain,
+    )
+
 
 @router.post("/login", response_model=TokenResponse)
-def login(payload: LoginRequest, db: Annotated[Session, Depends(get_db)]) -> TokenResponse:
+@limiter.limit("5/minute")
+def login(
+    request: Request,
+    payload: LoginRequest,
+    db: Annotated[Session, Depends(get_db)],
+) -> Response:
     email = str(payload.email).strip().lower()
     usuario = db.scalar(select(Usuario).where(Usuario.email == email))
 
@@ -39,7 +73,15 @@ def login(payload: LoginRequest, db: Annotated[Session, Depends(get_db)]) -> Tok
 
     settings = get_settings()
     access_token = create_access_token(str(usuario.id), settings.secret_key, settings.access_token_expire_minutes)
-    return TokenResponse(access_token=access_token)
+
+    token_response = TokenResponse(access_token=access_token)
+    response = Response(
+        content=token_response.model_dump_json(),
+        media_type="application/json",
+        status_code=status.HTTP_200_OK,
+    )
+    _set_auth_cookie(response, access_token, settings.access_token_expire_minutes * 60)
+    return response
 
 
 @router.get("/me", response_model=UsuarioAutenticadoResponse)
@@ -49,11 +91,15 @@ def me(usuario: Annotated[Usuario, Depends(get_current_user)]) -> Usuario:
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 def logout(_: Annotated[Usuario, Depends(get_current_user)]) -> Response:
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+    response = Response(status_code=status.HTTP_204_NO_CONTENT)
+    _clear_auth_cookie(response)
+    return response
 
 
 @router.post("/forgot-password", status_code=status.HTTP_202_ACCEPTED)
+@limiter.limit("3/minute")
 def forgot_password(
+    request: Request,
     payload: ForgotPasswordRequest,
     db: Annotated[Session, Depends(get_db)],
 ) -> Response:
@@ -70,7 +116,8 @@ def forgot_password(
 
 
 @router.post("/reset-password", status_code=status.HTTP_204_NO_CONTENT)
-def reset_password(payload: ResetPasswordRequest, db: Annotated[Session, Depends(get_db)]) -> Response:
+@limiter.limit("5/minute")
+def reset_password(request: Request, payload: ResetPasswordRequest, db: Annotated[Session, Depends(get_db)]) -> Response:
     reset_password_with_token(db, token=payload.token, nova_senha=payload.nova_senha)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

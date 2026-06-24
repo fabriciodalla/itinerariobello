@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Cookie, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
@@ -27,12 +27,20 @@ def authentication_error() -> HTTPException:
 def get_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
     db: Annotated[Session, Depends(get_db)],
+    access_token: Annotated[str | None, Cookie()] = None,
 ) -> Usuario:
-    if credentials is None or credentials.scheme.lower() != "bearer":
+    raw_token: str | None = None
+
+    if credentials and credentials.scheme.lower() == "bearer":
+        raw_token = credentials.credentials
+    elif access_token:
+        raw_token = access_token
+
+    if raw_token is None:
         raise authentication_error()
 
     settings = get_settings()
-    subject = decode_access_token(credentials.credentials, settings.secret_key)
+    subject = decode_access_token(raw_token, settings.secret_key)
     if subject is None:
         raise authentication_error()
 

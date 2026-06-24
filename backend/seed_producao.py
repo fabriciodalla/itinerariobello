@@ -1,21 +1,14 @@
 """
 Script de seed de producao — Itinerario Bello
 ==============================================
-Cria os usuarios iniciais e a frota de veiculos no banco de producao.
+Cria o usuario administrador inicial no banco de producao.
+Demais usuarios sao criados pela interface (solicitacao de cadastro)
+ou adicionados aqui conforme necessidade.
 
 Como usar:
-  docker compose -f docker-compose.prod.yml exec api python seed_producao.py
+  docker compose --env-file .env.production -f docker-compose.vm.yml exec api python seed_producao.py
 
-ANTES DE RODAR:
-  1. Preencha as secoes USUARIOS e VEICULOS abaixo com os dados reais.
-  2. Verifique os superiores — cada motorista deve ter o ID do seu supervisor em superior_id.
-  3. O script e idempotente: pula registros que ja existem (por email ou placa).
-
-Perfis disponiveis:
-  admin      — acesso total, gerencia usuarios e veiculos
-  supervisor — fecha relatorio mensal, ve viagens dos subordinados
-  motorista  — registra viagens proprias
-  analista   — acesso read-only a relatorios
+O script e idempotente: pula registros que ja existem (por email ou placa).
 """
 
 import sys
@@ -32,11 +25,6 @@ from app.models.usuario import Usuario
 from app.models.veiculo import Veiculo
 
 
-# ==============================================================================
-# CONFIGURACAO — USUARIOS
-# Preencha com os dados reais antes de rodar.
-# ==============================================================================
-
 @dataclass
 class UsuarioSeed:
     nome: str
@@ -44,96 +32,10 @@ class UsuarioSeed:
     senha: str
     perfil: PerfilUsuario
     cargo: str | None = None
-    superior_email: str | None = None  # email do supervisor direto (para motoristas)
+    superior_email: str | None = None
     pode_aprovar: bool = False
     id: UUID = field(default_factory=uuid4)
 
-
-USUARIOS: list[UsuarioSeed] = [
-    # ------------------------------------------------------------------
-    # ADMIN — acesso total ao sistema
-    # ------------------------------------------------------------------
-    UsuarioSeed(
-        nome="Administrador Bello",
-        email="admin@belloalimentos.com.br",
-        senha="Bello@2026admin",          # TROCAR na primeira entrada
-        perfil=PerfilUsuario.admin,
-        cargo="Administrador do Sistema",
-    ),
-
-    # ------------------------------------------------------------------
-    # SUPERVISORES — fecham relatorio mensal e veem viagens dos subordinados
-    # Adicione quantos supervisores a empresa tiver.
-    # ------------------------------------------------------------------
-    UsuarioSeed(
-        nome="Supervisor Exemplo Um",           # TROCAR pelo nome real
-        email="supervisor1@belloalimentos.com.br",  # TROCAR
-        senha="Bello@2026sup1",                # TROCAR na primeira entrada
-        perfil=PerfilUsuario.supervisor,
-        cargo="Supervisor Comercial",
-    ),
-    UsuarioSeed(
-        nome="Supervisor Exemplo Dois",         # TROCAR pelo nome real
-        email="supervisor2@belloalimentos.com.br",  # TROCAR
-        senha="Bello@2026sup2",                # TROCAR na primeira entrada
-        perfil=PerfilUsuario.supervisor,
-        cargo="Supervisor Comercial",
-    ),
-
-    # ------------------------------------------------------------------
-    # MOTORISTAS — registram viagens
-    # superior_email deve ser o email do supervisor acima.
-    # ------------------------------------------------------------------
-    UsuarioSeed(
-        nome="Motorista Exemplo Um",            # TROCAR pelo nome real
-        email="motorista1@belloalimentos.com.br",  # TROCAR
-        senha="Bello@2026mot1",                # TROCAR na primeira entrada
-        perfil=PerfilUsuario.motorista,
-        cargo="Motorista",
-        superior_email="supervisor1@belloalimentos.com.br",
-    ),
-    UsuarioSeed(
-        nome="Motorista Exemplo Dois",          # TROCAR pelo nome real
-        email="motorista2@belloalimentos.com.br",  # TROCAR
-        senha="Bello@2026mot2",
-        perfil=PerfilUsuario.motorista,
-        cargo="Motorista",
-        superior_email="supervisor1@belloalimentos.com.br",
-    ),
-    UsuarioSeed(
-        nome="Motorista Exemplo Tres",          # TROCAR pelo nome real
-        email="motorista3@belloalimentos.com.br",  # TROCAR
-        senha="Bello@2026mot3",
-        perfil=PerfilUsuario.motorista,
-        cargo="Motorista",
-        superior_email="supervisor2@belloalimentos.com.br",
-    ),
-    UsuarioSeed(
-        nome="Motorista Exemplo Quatro",        # TROCAR pelo nome real
-        email="motorista4@belloalimentos.com.br",  # TROCAR
-        senha="Bello@2026mot4",
-        perfil=PerfilUsuario.motorista,
-        cargo="Motorista",
-        superior_email="supervisor2@belloalimentos.com.br",
-    ),
-
-    # ------------------------------------------------------------------
-    # ANALISTA — acesso read-only a relatorios (opcional)
-    # ------------------------------------------------------------------
-    # UsuarioSeed(
-    #     nome="Analista Exemplo",
-    #     email="analista@belloalimentos.com.br",
-    #     senha="Bello@2026ana",
-    #     perfil=PerfilUsuario.analista,
-    #     cargo="Analista Comercial",
-    # ),
-]
-
-
-# ==============================================================================
-# CONFIGURACAO — VEICULOS
-# Preencha com os dados reais da frota.
-# ==============================================================================
 
 @dataclass
 class VeiculoSeed:
@@ -143,52 +45,55 @@ class VeiculoSeed:
     tipo_disponibilidade: TipoDisponibilidadeVeiculo
     unidade: str | None = None
     categoria: str | None = None
-    responsavel_email: str | None = None  # email do motorista fixo (se tipo_disponibilidade='fixo')
+    responsavel_email: str | None = None
 
+
+# ==============================================================================
+# USUARIOS — preencha com os dados reais antes de rodar
+# ==============================================================================
+
+USUARIOS: list[UsuarioSeed] = [
+    UsuarioSeed(
+        nome="Administrador Bello",
+        email="admin@belloalimentos.com.br",      # TROCAR pelo email real
+        senha="Bello@2026admin",                   # TROCAR na primeira entrada
+        perfil=PerfilUsuario.admin,
+        cargo="Administrador do Sistema",
+    ),
+    # Adicione supervisores, motoristas e analistas abaixo conforme necessidade.
+    # Exemplo:
+    # UsuarioSeed(
+    #     nome="Nome do Supervisor",
+    #     email="supervisor@belloalimentos.com.br",
+    #     senha="SenhaTempor@ria1",
+    #     perfil=PerfilUsuario.supervisor,
+    #     cargo="Supervisor Comercial",
+    # ),
+    # UsuarioSeed(
+    #     nome="Nome do Motorista",
+    #     email="motorista@belloalimentos.com.br",
+    #     senha="SenhaTempor@ria2",
+    #     perfil=PerfilUsuario.motorista,
+    #     cargo="Motorista",
+    #     superior_email="supervisor@belloalimentos.com.br",
+    # ),
+]
+
+
+# ==============================================================================
+# VEICULOS — preencha com os dados reais da frota
+# ==============================================================================
 
 VEICULOS: list[VeiculoSeed] = [
-    # ------------------------------------------------------------------
-    # Veiculos FIXOS — atribuidos a um motorista especifico
-    # responsavel_email deve ser o email do motorista responsavel.
-    # ------------------------------------------------------------------
-    VeiculoSeed(
-        placa="ABC-1234",                          # TROCAR pela placa real
-        modelo="Fiat Strada 2023",                 # TROCAR pelo modelo real
-        tipo=TipoVeiculo.proprio,
-        tipo_disponibilidade=TipoDisponibilidadeVeiculo.fixo,
-        unidade="Matriz",
-        categoria="Pickup",
-        responsavel_email="motorista1@belloalimentos.com.br",
-    ),
-    VeiculoSeed(
-        placa="DEF-5678",                          # TROCAR
-        modelo="VW Saveiro 2022",                  # TROCAR
-        tipo=TipoVeiculo.proprio,
-        tipo_disponibilidade=TipoDisponibilidadeVeiculo.fixo,
-        unidade="Matriz",
-        categoria="Pickup",
-        responsavel_email="motorista2@belloalimentos.com.br",
-    ),
-
-    # ------------------------------------------------------------------
-    # Veiculos ALOCADOS — qualquer motorista pode usar
-    # ------------------------------------------------------------------
-    VeiculoSeed(
-        placa="GHI-9012",                          # TROCAR
-        modelo="Chevrolet S10 2021",               # TROCAR
-        tipo=TipoVeiculo.proprio,
-        tipo_disponibilidade=TipoDisponibilidadeVeiculo.alocado,
-        unidade="Filial",
-        categoria="Pickup",
-    ),
-    VeiculoSeed(
-        placa="JKL-3456",                          # TROCAR
-        modelo="Fiat Toro 2023",                   # TROCAR
-        tipo=TipoVeiculo.alugado,
-        tipo_disponibilidade=TipoDisponibilidadeVeiculo.alocado,
-        unidade="Filial",
-        categoria="Pickup",
-    ),
+    # Exemplo:
+    # VeiculoSeed(
+    #     placa="ABC-1D23",
+    #     modelo="Fiat Strada 2023",
+    #     tipo=TipoVeiculo.proprio,
+    #     tipo_disponibilidade=TipoDisponibilidadeVeiculo.alocado,
+    #     unidade="Matriz",
+    #     categoria="Pickup",
+    # ),
 ]
 
 
@@ -202,10 +107,8 @@ def main() -> None:
 
     print("\n=== SEED DE PRODUCAO — ITINERARIO BELLO ===\n")
 
-    # Indexar usuarios por email para resolver superior_id depois
     usuarios_criados: dict[str, Usuario] = {}
 
-    # Primeira passagem: criar todos os usuarios sem superior_id
     print("--- Usuarios ---")
     for u in USUARIOS:
         existente = db.scalar(select(Usuario).where(Usuario.email == u.email))
@@ -236,7 +139,6 @@ def main() -> None:
             erros.append(msg)
             print(f"  [ERRO]      {msg}")
 
-    # Segunda passagem: vincular superior_id
     for u in USUARIOS:
         if u.superior_email is None:
             continue
@@ -249,7 +151,6 @@ def main() -> None:
 
     db.flush()
 
-    # Criar veiculos
     print("\n--- Veiculos ---")
     for v in VEICULOS:
         existente = db.scalar(select(Veiculo).where(Veiculo.placa == v.placa))
