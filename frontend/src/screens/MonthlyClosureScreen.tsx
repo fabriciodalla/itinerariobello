@@ -47,11 +47,7 @@ export function MonthlyClosureScreen({ token, user, onMessage }: MonthlyClosureS
     return Array.from(byId, ([id, nome]) => ({ id, nome }))
   }, [reports])
 
-  const allocatedVehicles = useMemo(
-    () => vehicles.filter((vehicle) => vehicle.tipo_disponibilidade === 'alocado'),
-    [vehicles],
-  )
-  const selectedVehicle = allocatedVehicles.find((vehicle) => vehicle.id === selectedVehicleId) ?? null
+  const selectedVehicle = vehicles.find((vehicle) => vehicle.id === selectedVehicleId) ?? null
 
   const selectedReports = selectedMotoristaId
     ? reports.filter((item) => item.usuario_id === selectedMotoristaId)
@@ -105,7 +101,7 @@ export function MonthlyClosureScreen({ token, user, onMessage }: MonthlyClosureS
 
   async function exportCsv() {
     if (isVehicleMode && !selectedVehicleId) {
-      onMessage('Selecione um veiculo alocado para exportar o relatorio.')
+      onMessage('Selecione um veiculo para exportar o relatorio.')
       return
     }
     setSaving(true)
@@ -226,12 +222,12 @@ export function MonthlyClosureScreen({ token, user, onMessage }: MonthlyClosureS
         </label>
         {isVehicleMode ? (
           <label>
-            <span>Veiculo alocado</span>
+            <span>Veiculo</span>
             <select value={selectedVehicleId} onChange={(event) => setSelectedVehicleId(event.target.value)}>
               <option value="">Selecione</option>
-              {allocatedVehicles.map((vehicle) => (
+              {vehicles.map((vehicle) => (
                 <option key={vehicle.id} value={vehicle.id}>
-                  {vehicle.placa} | {vehicle.modelo}
+                  {vehicle.placa} | {vehicle.modelo}{vehicle.ativo ? '' : ' | Inativo'}
                 </option>
               ))}
             </select>
@@ -393,7 +389,7 @@ export function MonthlyClosureScreen({ token, user, onMessage }: MonthlyClosureS
       </div>
       {!visibleReports.length ? (
         <div className="empty-state">
-          {isVehicleMode && !selectedVehicleId ? 'Selecione um veiculo alocado para consultar.' : 'Nenhum item no periodo.'}
+          {isVehicleMode && !selectedVehicleId ? 'Selecione um veiculo para consultar.' : 'Nenhum item no periodo.'}
         </div>
       ) : null}
     </section>

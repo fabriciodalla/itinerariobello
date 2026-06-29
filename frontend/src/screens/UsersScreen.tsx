@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { CarFront, Edit3, KeyRound, Loader2, RefreshCw, Save, Search, Users, X } from 'lucide-react'
+import { PasswordInput } from '../components/PasswordInput'
 import { ApiError, api } from '../services/api'
 import type { User, Vehicle } from '../types/domain'
 
@@ -230,12 +231,19 @@ export function UsersScreen({ token, onMessage }: UsersScreenProps) {
             <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
               {editTarget.user.nome}
             </p>
-            <label><span>Nova senha</span>
-              <input type="password" value={novaSenha} onChange={(e) => setNovaSenha(e.target.value)} placeholder="Minimo 8 caracteres" autoFocus />
-            </label>
-            <label><span>Confirmar senha</span>
-              <input type="password" value={confirmacao} onChange={(e) => setConfirmacao(e.target.value)} placeholder="Repita a nova senha" />
-            </label>
+            <PasswordInput
+              label="Nova senha"
+              value={novaSenha}
+              onChange={(e) => setNovaSenha(e.target.value)}
+              placeholder="Minimo 8 caracteres"
+              autoFocus
+            />
+            <PasswordInput
+              label="Confirmar senha"
+              value={confirmacao}
+              onChange={(e) => setConfirmacao(e.target.value)}
+              placeholder="Repita a nova senha"
+            />
             <div className="action-row">
               <button className="primary-button compact" type="button" onClick={() => void handleReset()} disabled={saving}>
                 {saving ? <Loader2 className="spin" /> : <KeyRound />} <span>Redefinir</span>

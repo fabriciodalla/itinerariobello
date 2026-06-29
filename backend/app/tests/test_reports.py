@@ -324,7 +324,7 @@ def test_relatorio_mensal_informa_endereco_nao_resolvido_quando_indisponivel(
 
 @pytest.mark.relatorio
 @pytest.mark.risco(peso=50, criticidade="alta", area="relatorio", referencias=("RF-016", "RF-017"))
-def test_admin_consulta_e_exporta_relatorio_mensal_por_veiculo_alocado(api_client):
+def test_admin_consulta_e_exporta_relatorio_mensal_por_veiculo(api_client):
     db = SessionLocal()
     created = []
     try:
@@ -352,11 +352,12 @@ def test_admin_consulta_e_exporta_relatorio_mensal_por_veiculo_alocado(api_clien
         db.flush()
         created.extend([admin, vendedor, outro_vendedor])
 
-        veiculo_alocado = Veiculo(
-            placa=f"AL{suffix[:5]}",
-            modelo="Veiculo Alocado",
-            tipo=TipoVeiculo.empresa,
-            tipo_disponibilidade=TipoDisponibilidadeVeiculo.alocado,
+        veiculo_consultado = Veiculo(
+            placa=f"FX{suffix[:5]}",
+            modelo="Veiculo Fixo",
+            tipo=TipoVeiculo.proprio,
+            tipo_disponibilidade=TipoDisponibilidadeVeiculo.fixo,
+            usuario_responsavel_id=vendedor.id,
         )
         outro_veiculo = Veiculo(
             placa=f"AO{suffix[:5]}",
@@ -364,16 +365,16 @@ def test_admin_consulta_e_exporta_relatorio_mensal_por_veiculo_alocado(api_clien
             tipo=TipoVeiculo.empresa,
             tipo_disponibilidade=TipoDisponibilidadeVeiculo.alocado,
         )
-        db.add_all([veiculo_alocado, outro_veiculo])
+        db.add_all([veiculo_consultado, outro_veiculo])
         db.flush()
-        created.extend([veiculo_alocado, outro_veiculo])
+        created.extend([veiculo_consultado, outro_veiculo])
 
         params_base = current_report_params()
         partida_em = datetime(params_base["ano"], params_base["mes"], 5, 8, tzinfo=timezone.utc)
         chegada_em = datetime(params_base["ano"], params_base["mes"], 5, 18, tzinfo=timezone.utc)
         viagem_do_veiculo = Viagem(
             usuario_id=vendedor.id,
-            veiculo_id=veiculo_alocado.id,
+            veiculo_id=veiculo_consultado.id,
             status=StatusViagem.concluida,
             km_inicial=Decimal("1000.00"),
             km_final=Decimal("1060.00"),
@@ -407,19 +408,19 @@ def test_admin_consulta_e_exporta_relatorio_mensal_por_veiculo_alocado(api_clien
                 )
             )
         }
-        params = {**params_base, "veiculo_id": str(veiculo_alocado.id)}
+        params = {**params_base, "veiculo_id": str(veiculo_consultado.id)}
 
         response = api_client.get("/reports/monthly", params=params, headers=headers)
 
         assert response.status_code == 200, response.text
         items = response_items(response)
         assert [item["id"] for item in items] == [str(viagem_do_veiculo.id)]
-        assert items[0]["veiculo_id"] == str(veiculo_alocado.id)
+        assert items[0]["veiculo_id"] == str(veiculo_consultado.id)
         assert items[0]["usuario_nome"] == vendedor.nome
 
         export_response = api_client.get("/reports/monthly/export", params=params, headers=headers)
         assert_pdf_response(export_response)
-        assert f"relatorio-veiculo-{veiculo_alocado.placa}" in export_response.headers.get("content-disposition", "")
+        assert f"relatorio-veiculo-{veiculo_consultado.placa}" in export_response.headers.get("content-disposition", "")
     finally:
         db.rollback()
         for item in reversed(created):

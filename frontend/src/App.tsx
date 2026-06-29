@@ -84,12 +84,13 @@ function App() {
         setLoading(false)
       }
     },
-    [describeError],
+    [],
   )
 
   useEffect(() => {
-    void loadWorkspace('')
-  }, [])
+    const timeout = window.setTimeout(() => void loadWorkspace(''), 0)
+    return () => window.clearTimeout(timeout)
+  }, [loadWorkspace])
 
   async function handleLogin(email: string, senha: string) {
     setLoading(true)
@@ -283,11 +284,6 @@ function App() {
       {showChangePassword ? (
         <ChangePasswordModal token={token} onClose={() => setShowChangePassword(false)} />
       ) : null}
-
-      <footer className="app-footer">
-        <Route />
-        <span>API: {import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}</span>
-      </footer>
     </main>
   )
 }

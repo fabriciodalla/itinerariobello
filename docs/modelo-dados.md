@@ -133,7 +133,7 @@ Regras técnicas:
 
 `RelatorioMensal` é uma visão de consulta e exportação, não uma tabela própria no protótipo. Cada item deve consolidar dados de `Viagem`, `Usuario`, `Veiculo`, `FechamentoMensal`, `FotoHodometro` e `LocalizacaoGPS`.
 
-A visão pode ser filtrada por motorista individual ou, para administradores, por veículo. O filtro por veículo não cria uma entidade de fechamento por veículo; ele apenas reorganiza a consulta para destacar o veículo selecionado e o vendedor que executou cada itinerário.
+A visão pode ser filtrada por motorista individual ou, para administradores, por qualquer veículo cadastrado. O filtro por veículo não cria uma entidade de fechamento por veículo; ele apenas reorganiza a consulta para destacar o veículo selecionado e o vendedor que executou cada itinerário.
 
 Campos obrigatórios de evidência no item:
 

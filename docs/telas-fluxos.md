@@ -25,6 +25,7 @@ Autenticar o usuário com e-mail e senha.
 
 - Campo de e-mail.
 - Campo de senha.
+- Botão de olho no campo de senha para alternar entre texto visível e senha oculta.
 - Botão de entrar.
 - Link de recuperação de senha.
 - Link de solicitação de cadastro.
@@ -48,6 +49,7 @@ Permitir que usuário receba link por e-mail para redefinir senha.
 - Campo de e-mail.
 - Botão de enviar link.
 - Formulário de nova senha quando a tela for aberta com `reset_token`.
+- Botões de olho nos campos de nova senha e confirmação.
 
 ### Critérios De Aceite
 
@@ -55,6 +57,26 @@ Permitir que usuário receba link por e-mail para redefinir senha.
 - Resposta pública não informa se o e-mail existe.
 - Permite definir nova senha com token válido.
 - Exibe erro quando token estiver inválido ou expirado.
+
+## 3.1 Modal Alterar Senha
+
+### Objetivo
+
+Permitir que usuário autenticado altere a própria senha.
+
+### Elementos
+
+- Campo de senha atual.
+- Campo de nova senha.
+- Campo de confirmação da nova senha.
+- Botões de olho nos campos de senha.
+- Botão de alterar senha.
+
+### Critérios De Aceite
+
+- Bloqueia envio sem senha atual, nova senha ou confirmação.
+- Bloqueia envio quando nova senha e confirmação não conferem.
+- Mantém a validação final no backend.
 
 ## 4. Tela Solicitar Cadastro
 
@@ -240,13 +262,13 @@ Permitir correções antes do fechamento mensal fechado.
 
 Permitir que o superior consulte o consolidado mensal de um motorista individual.
 
-Para administradores, a tela também permite consultar o relatório mensal por veículo alocado, mantendo o fechamento mensal por motorista como regra de controle.
+Para administradores, a tela também permite consultar o relatório mensal por veículo, mantendo o fechamento mensal por motorista como regra de controle.
 
 ### Elementos
 
 - Filtros por mês, motorista, veículo e status.
 - Alternância administrativa entre relatório por motorista e relatório por veículo.
-- Seletor de veículo alocado quando o foco for veículo.
+- Seletor de veículo quando o foco for veículo.
 - Lista de motoristas subordinados com status do fechamento no mês.
 - Resumo do motorista selecionado com total de viagens no período e status `aberto` ou `fechado`.
 - Resumo do veículo selecionado com total de viagens e KM total no período.
@@ -264,7 +286,7 @@ Para administradores, a tela também permite consultar o relatório mensal por v
 - Tela não oferece botões de aprovar ou reprovar fechamento mensal.
 - Fechamento mensal `fechado` registra responsável, data/hora, status e observação quando informada.
 - O fechamento mensal é feito por motorista individual, não por equipe inteira.
-- Administrador consegue selecionar um veículo alocado e exportar PDF focado no veículo, com vendedor por itinerário e fotos quando disponíveis.
+- Administrador consegue selecionar um veículo e exportar PDF focado no veículo, com vendedor por itinerário e fotos quando disponíveis.
 
 ## 12. Tela Cadastros
 
@@ -277,6 +299,7 @@ Permitir que administrador aprove ou reprove solicitações públicas de cadastr
 - Lista de solicitações pendentes.
 - Dados do solicitante, cargo, superior informado e veículo.
 - Campo de senha temporária.
+- Botão de olho no campo de senha temporária.
 - Seletores de perfil, superior técnico e tipo do veículo.
 - Controle de permissão de fechamento.
 - Campo de motivo para reprovação.
@@ -288,6 +311,26 @@ Permitir que administrador aprove ou reprove solicitações públicas de cadastr
 - Aprovação cria usuário ativo e veículo novo ou vinculado.
 - Reprovação exige motivo.
 - Solicitação processada não pode ser processada novamente.
+
+## 12.1 Tela Gerenciamento
+
+### Objetivo
+
+Permitir que administrador gerencie usuários, veículos e redefinição de senha.
+
+### Elementos
+
+- Lista de usuários.
+- Lista de veículos.
+- Busca por usuário, e-mail, placa, modelo ou unidade.
+- Ação de redefinir senha de usuário.
+- Botões de olho nos campos de nova senha e confirmação.
+
+### Critérios De Aceite
+
+- Disponível somente para administrador.
+- Redefinição de senha exige mínimo de caracteres definido pelo backend.
+- Bloqueia envio quando nova senha e confirmação não conferem.
 
 ## 13. Fluxo Principal Da Viagem
 

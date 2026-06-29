@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { CheckCircle, KeyRound, Loader2, X } from 'lucide-react'
 import { ApiError, api } from '../services/api'
+import { PasswordInput } from './PasswordInput'
 
 interface ChangePasswordModalProps {
   token: string
@@ -58,33 +59,24 @@ export function ChangePasswordModal({ token, onClose }: ChangePasswordModalProps
           </div>
         ) : (
           <form onSubmit={(event) => void submit(event)}>
-            <label>
-              <span>Senha atual</span>
-              <input
-                type="password"
-                autoComplete="current-password"
-                value={senhaAtual}
-                onChange={(event) => setSenhaAtual(event.target.value)}
-              />
-            </label>
-            <label>
-              <span>Nova senha</span>
-              <input
-                type="password"
-                autoComplete="new-password"
-                value={novaSenha}
-                onChange={(event) => setNovaSenha(event.target.value)}
-              />
-            </label>
-            <label>
-              <span>Confirmar nova senha</span>
-              <input
-                type="password"
-                autoComplete="new-password"
-                value={confirmacao}
-                onChange={(event) => setConfirmacao(event.target.value)}
-              />
-            </label>
+            <PasswordInput
+              label="Senha atual"
+              autoComplete="current-password"
+              value={senhaAtual}
+              onChange={(event) => setSenhaAtual(event.target.value)}
+            />
+            <PasswordInput
+              label="Nova senha"
+              autoComplete="new-password"
+              value={novaSenha}
+              onChange={(event) => setNovaSenha(event.target.value)}
+            />
+            <PasswordInput
+              label="Confirmar nova senha"
+              autoComplete="new-password"
+              value={confirmacao}
+              onChange={(event) => setConfirmacao(event.target.value)}
+            />
             {error ? <div className="inline-error">{error}</div> : null}
             <button
               className="primary-button full"

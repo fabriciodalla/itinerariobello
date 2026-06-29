@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { ArrowLeft, Loader2, LogIn, Mail, Send, UserPlus } from 'lucide-react'
+import { PasswordInput } from '../components/PasswordInput'
 import type { SignupRequestPayload } from '../types/domain'
 
 type LoginMode = 'login' | 'forgot' | 'reset' | 'signup'
@@ -173,15 +174,12 @@ export function LoginScreen({
                 onChange={(event) => setEmail(event.target.value)}
               />
             </label>
-            <label>
-              <span>Senha</span>
-              <input
-                type="password"
-                autoComplete="current-password"
-                value={senha}
-                onChange={(event) => setSenha(event.target.value)}
-              />
-            </label>
+            <PasswordInput
+              label="Senha"
+              autoComplete="current-password"
+              value={senha}
+              onChange={(event) => setSenha(event.target.value)}
+            />
             {visibleMessage ? <div className="alert">{visibleMessage}</div> : null}
             <button className="primary-button full" type="submit" disabled={busy}>
               {busy ? <Loader2 className="spin" /> : <LogIn />}
@@ -231,24 +229,18 @@ export function LoginScreen({
                 <input value={resetToken} onChange={(event) => setResetToken(event.target.value)} />
               </label>
             ) : null}
-            <label>
-              <span>Nova senha</span>
-              <input
-                type="password"
-                autoComplete="new-password"
-                value={novaSenha}
-                onChange={(event) => setNovaSenha(event.target.value)}
-              />
-            </label>
-            <label>
-              <span>Confirmar nova senha</span>
-              <input
-                type="password"
-                autoComplete="new-password"
-                value={confirmacao}
-                onChange={(event) => setConfirmacao(event.target.value)}
-              />
-            </label>
+            <PasswordInput
+              label="Nova senha"
+              autoComplete="new-password"
+              value={novaSenha}
+              onChange={(event) => setNovaSenha(event.target.value)}
+            />
+            <PasswordInput
+              label="Confirmar nova senha"
+              autoComplete="new-password"
+              value={confirmacao}
+              onChange={(event) => setConfirmacao(event.target.value)}
+            />
             {visibleMessage ? <div className="alert">{visibleMessage}</div> : null}
             <button className="primary-button full" type="submit" disabled={busy}>
               {busy ? <Loader2 className="spin" /> : <Send />}

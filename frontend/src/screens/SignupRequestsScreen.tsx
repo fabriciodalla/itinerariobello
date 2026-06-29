@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Check, Loader2, RefreshCw, UserPlus, X } from 'lucide-react'
+import { PasswordInput } from '../components/PasswordInput'
 import { StatusPill } from '../components/StatusPill'
 import { ApiError, api } from '../services/api'
 import type { PerfilUsuario, SignupRequest, TipoVeiculo, User } from '../types/domain'
@@ -161,14 +162,11 @@ export function SignupRequestsScreen({ token, onMessage }: SignupRequestsScreenP
 
               <div className="signup-decision-form">
                 <div className="signup-grid">
-                  <label>
-                    <span>Senha temporaria</span>
-                    <input
-                      type="password"
-                      value={decision.senhaTemporaria}
-                      onChange={(event) => updateDecision(request.id, { senhaTemporaria: event.target.value })}
-                    />
-                  </label>
+                  <PasswordInput
+                    label="Senha temporaria"
+                    value={decision.senhaTemporaria}
+                    onChange={(event) => updateDecision(request.id, { senhaTemporaria: event.target.value })}
+                  />
                   <label>
                     <span>Perfil</span>
                     <select

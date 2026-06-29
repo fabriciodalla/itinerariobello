@@ -375,7 +375,7 @@ Parâmetros:
 | `ano` | Inteiro | Sim | Ano do relatório |
 | `mes` | Inteiro | Sim | Mês do relatório, de `1` a `12` |
 | `motorista_id` | UUID | Não | Filtra um motorista individual |
-| `veiculo_id` | UUID | Não | Filtra um veículo para relatório administrativo por veículo; uso restrito a administrador |
+| `veiculo_id` | UUID | Não | Filtra um veículo, fixo ou alocado, para relatório administrativo por veículo; uso restrito a administrador |
 
 Item de resposta:
 
