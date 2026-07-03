@@ -1,4 +1,4 @@
-# Deploy no Ubuntu — Itinerario Bello (porta 8002)
+# Deploy no Ubuntu — Itinerario Bello (porta 8082)
 
 ## Pre-requisitos no servidor
 
@@ -17,8 +17,8 @@ sudo apt install -y docker-compose-plugin
 docker --version
 docker compose version
 
-# Abrir porta 8002 no firewall (se necessario)
-sudo ufw allow 8002/tcp
+# Abrir porta 8082 no firewall (se necessario)
+sudo ufw allow 8082/tcp
 ```
 
 ## 1. Clonar o repositorio
@@ -45,8 +45,8 @@ nano .env.production
 | `POSTGRES_PASSWORD` | Senha forte para o banco (gere com `openssl rand -base64 32`) |
 | `DATABASE_URL` | Atualizar com a mesma senha do POSTGRES_PASSWORD |
 | `SECRET_KEY` | Gerar com `python3 -c "from secrets import token_urlsafe; print(token_urlsafe(64))"` |
-| `CORS_ORIGINS` | `http://IP_DO_SERVIDOR:8002` |
-| `FRONTEND_BASE_URL` | `http://IP_DO_SERVIDOR:8002` |
+| `CORS_ORIGINS` | `http://IP_DO_SERVIDOR:8082` |
+| `FRONTEND_BASE_URL` | `http://IP_DO_SERVIDOR:8082` |
 | `SMTP_HOST` | Servidor SMTP (ex: `smtp.gmail.com`) |
 | `SMTP_USERNAME` | Email para envio |
 | `SMTP_PASSWORD` | Senha de app do email |
@@ -92,7 +92,7 @@ docker compose --env-file .env.production -f docker-compose.vm.yml exec api pyth
 
 ```bash
 # Health check da API
-curl http://localhost:8002/health
+curl http://localhost:8082/health
 
 # Verificar containers
 docker compose --env-file .env.production -f docker-compose.vm.yml ps
@@ -101,7 +101,7 @@ docker compose --env-file .env.production -f docker-compose.vm.yml ps
 docker compose --env-file .env.production -f docker-compose.vm.yml logs -f
 ```
 
-Acesse `http://IP_DO_SERVIDOR:8002` no navegador.
+Acesse `http://IP_DO_SERVIDOR:8082` no navegador.
 
 ## Comandos uteis
 
