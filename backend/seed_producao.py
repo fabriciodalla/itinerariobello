@@ -23,6 +23,7 @@ from app.db.session import SessionLocal
 from app.models.enums import PerfilUsuario, TipoDisponibilidadeVeiculo, TipoVeiculo
 from app.models.usuario import Usuario
 from app.models.veiculo import Veiculo
+from app.services.veiculos import normalizar_modelo_veiculo
 
 
 @dataclass
@@ -88,7 +89,7 @@ VEICULOS: list[VeiculoSeed] = [
     # Exemplo:
     # VeiculoSeed(
     #     placa="ABC-1D23",
-    #     modelo="Fiat Strada 2023",
+    #     modelo="STRADA 2023",
     #     tipo=TipoVeiculo.proprio,
     #     tipo_disponibilidade=TipoDisponibilidadeVeiculo.alocado,
     #     unidade="Matriz",
@@ -153,9 +154,10 @@ def main() -> None:
 
     print("\n--- Veiculos ---")
     for v in VEICULOS:
+        modelo_normalizado = normalizar_modelo_veiculo(v.modelo)
         existente = db.scalar(select(Veiculo).where(Veiculo.placa == v.placa))
         if existente:
-            print(f"  [JA EXISTE] {v.placa} — {v.modelo}")
+            print(f"  [JA EXISTE] {v.placa} — {existente.modelo}")
             continue
 
         responsavel_id: UUID | None = None
@@ -176,7 +178,7 @@ def main() -> None:
 
         novo_veiculo = Veiculo(
             placa=v.placa,
-            modelo=v.modelo,
+            modelo=modelo_normalizado,
             tipo=v.tipo,
             tipo_disponibilidade=v.tipo_disponibilidade,
             unidade=v.unidade,
@@ -187,7 +189,7 @@ def main() -> None:
         db.add(novo_veiculo)
         try:
             db.flush()
-            print(f"  [CRIADO]    {v.placa} — {v.modelo} ({v.tipo_disponibilidade.value})")
+            print(f"  [CRIADO]    {v.placa} — {modelo_normalizado} ({v.tipo_disponibilidade.value})")
         except IntegrityError as exc:
             db.rollback()
             msg = f"Erro ao criar veiculo {v.placa}: {exc}"

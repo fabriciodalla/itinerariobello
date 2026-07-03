@@ -14,7 +14,12 @@ from app.models.usuario import Usuario
 from app.models.veiculo import Veiculo
 from app.models.viagem import Viagem
 from app.schemas.veiculos import VeiculoCreateRequest, VeiculoEmRotaResponse, VeiculoPatchRequest, VeiculoResponse
-from app.services.veiculos import listar_veiculos_disponiveis_para_partida, listar_veiculos_em_rota
+from app.services.veiculos import (
+    listar_veiculos_disponiveis_para_partida,
+    listar_veiculos_em_rota,
+    normalizar_marca_veiculo,
+    normalizar_modelo_veiculo,
+)
 
 router = APIRouter(prefix="/vehicles", tags=["vehicles"])
 
@@ -101,8 +106,8 @@ def create_vehicle(
 
     veiculo = Veiculo(
         placa=placa,
-        modelo=payload.modelo.strip(),
-        marca=payload.marca.strip() if payload.marca else None,
+        modelo=normalizar_modelo_veiculo(payload.modelo),
+        marca=normalizar_marca_veiculo(payload.marca),
         unidade=payload.unidade.strip() if payload.unidade else None,
         categoria=payload.categoria.strip() if payload.categoria else None,
         tipo=payload.tipo,

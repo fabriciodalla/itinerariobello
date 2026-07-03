@@ -15,6 +15,7 @@ from app.db.session import SessionLocal
 from app.models.enums import PerfilUsuario, TipoDisponibilidadeVeiculo, TipoVeiculo
 from app.models.usuario import Usuario
 from app.models.veiculo import Veiculo
+from app.services.veiculos import normalizar_modelo_veiculo
 
 NS = {"main": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
 REL_NS = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
@@ -213,7 +214,7 @@ def upsert_veiculos(db: Session, rows: list[dict[str, str]]) -> tuple[int, int, 
     without_user = 0
     for row in rows:
         placa = row.get("placa_veiculo", "").strip().upper()
-        modelo = row.get("modelo___marca", "").strip()
+        modelo = normalizar_modelo_veiculo(row.get("modelo___marca", ""))
         unidade = row.get("unidade", "").strip() or None
         categoria = row.get("categoria", "").strip() or None
         email = normalize_email(row.get("usuario", ""))

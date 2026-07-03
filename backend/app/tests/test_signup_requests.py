@@ -22,8 +22,8 @@ def signup_payload(**overrides):
         "cargo": "Vendedor",
         "superior": "Coordenador Teste",
         "veiculo_placa": f"C{suffix[:6]}",
-        "veiculo_modelo": "Onix",
-        "veiculo_marca": "Chevrolet",
+        "veiculo_modelo": "honda/hrv",
+        "veiculo_marca": "honda",
         "observacao": "Cadastro criado por teste.",
     }
     payload.update(overrides)
@@ -56,6 +56,8 @@ def test_solicitacao_cadastro_publica_cria_registro_pendente(api_client):
     assert data["status"] == "pendente"
     assert data["email"] == payload["email"]
     assert data["veiculo_placa"] == payload["veiculo_placa"].upper()
+    assert data["veiculo_modelo"] == "HRV"
+    assert data["veiculo_marca"] == "HONDA"
 
 
 @pytest.mark.permissao
@@ -105,7 +107,8 @@ def test_admin_aprova_solicitacao_e_cria_usuario_e_veiculo(api_client):
 
         veiculo = db.scalar(select(Veiculo).where(Veiculo.placa == payload["veiculo_placa"].upper()))
         assert veiculo is not None
-        assert veiculo.marca == payload["veiculo_marca"]
+        assert veiculo.modelo == "HRV"
+        assert veiculo.marca == "HONDA"
     finally:
         db.rollback()
         for model, item_id in ((Veiculo, created_vehicle_id), (Usuario, created_user_id), (Usuario, admin.id)):

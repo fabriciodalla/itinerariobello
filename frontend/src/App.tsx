@@ -1,31 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import {
-  CarFront,
-  ClipboardCheck,
-  History,
-  KeyRound,
-  Loader2,
-  LogOut,
-  RefreshCw,
-  Route,
-  ShieldCheck,
-  UserPlus,
-  Users,
-} from 'lucide-react'
+import { Loader2, Route, ShieldCheck, UserPlus, Users } from 'lucide-react'
 import { LoginScreen } from './screens/LoginScreen'
-import { TripScreen } from './screens/TripScreen'
-import { HistoryScreen } from './screens/HistoryScreen'
+import { DriverCentralScreen } from './screens/DriverCentralScreen'
 import { MonthlyClosureScreen } from './screens/MonthlyClosureScreen'
-import { SignupRequestsScreen } from './screens/SignupRequestsScreen'
-import { UsersScreen } from './screens/UsersScreen'
-import { VehiclesInRouteScreen } from './screens/VehiclesInRouteScreen'
-import { ChangePasswordModal } from './components/ChangePasswordModal'
-import { InstallPromptButton } from './components/InstallPromptButton'
-import { StatusPill } from './components/StatusPill'
-import { ApiError, api } from './services/api'
+import { AdminCentralScreen } from './screens/AdminCentralScreen'
+import type { AdminTab } from './screens/AdminCentralScreen'
+import { AppHeader } from './components/AppHeader'
+import { StatusChipsRow } from './components/StatusChipsRow'
+import { BottomNav, DRIVER_NAV_ITEMS } from './components/BottomNav'
+import type { BottomNavItem, DriverTab } from './components/BottomNav'
+import { api, ApiError } from './services/api'
 import type { SignupRequestPayload, Trip, User, Vehicle, VehicleInRoute } from './types/domain'
-
-type AppView = 'em_rota' | 'viagem' | 'historico' | 'fechamento' | 'cadastros' | 'usuarios'
 
 function App() {
   const [token, setToken] = useState('')
@@ -33,22 +18,25 @@ function App() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [vehiclesInRoute, setVehiclesInRoute] = useState<VehicleInRoute[]>([])
   const [trips, setTrips] = useState<Trip[]>([])
-  const [view, setView] = useState<AppView>('viagem')
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [pendingCount, setPendingCount] = useState(0)
+  const [driverTab, setDriverTab] = useState<DriverTab>('carro')
+  const [adminTab, setAdminTab] = useState<AdminTab>('usuarios')
+  const [showStatusChips, setShowStatusChips] = useState(false)
 
-  const activeTrip = useMemo(
-    () => trips.find((trip) => trip.status === 'em_andamento' && trip.usuario_id === user?.id) ?? null,
-    [trips, user?.id],
-  )
-
-  const canReviewClosures = Boolean(
-    user && (user.pode_aprovar || user.perfil === 'analista' || user.perfil === 'admin'),
-  )
   const canRegisterTrips = Boolean(user && user.perfil === 'motorista')
-  const canManageSignupRequests = user?.perfil === 'admin'
-  const canSeeVehiclesInRoute = user?.email === 'admin@belloalimentos.com.br'
+  const isAdmin = user?.perfil === 'admin'
+
+  const adminNavItems = useMemo<Array<BottomNavItem<AdminTab>>>(
+    () => [
+      { id: 'usuarios', label: 'Usuarios', icon: Users },
+      { id: 'cadastros', label: 'Cadastros', icon: UserPlus, badge: pendingCount },
+      { id: 'em_rota', label: 'Em Rota', icon: Route, badge: vehiclesInRoute.length },
+      { id: 'fechamento', label: 'Fechamento', icon: ShieldCheck },
+    ],
+    [pendingCount, vehiclesInRoute.length],
+  )
 
   const describeError = useCallback((error: unknown) => {
     if (error instanceof ApiError) {
@@ -75,8 +63,6 @@ function App() {
         if (currentUser.perfil === 'admin') {
           api.pendingSignupCount(currentToken).then((r) => setPendingCount(r.count)).catch(() => {})
         }
-        const isMainAdmin = currentUser.email === 'admin@belloalimentos.com.br'
-        setView(isMainAdmin ? 'em_rota' : 'viagem')
       } catch {
         setToken('')
         setUser(null)
@@ -92,13 +78,22 @@ function App() {
     return () => window.clearTimeout(timeout)
   }, [loadWorkspace])
 
-  async function handleLogin(email: string, senha: string) {
+  useEffect(() => {
+    if (driverTab !== 'carro') {
+      setShowStatusChips(false)
+    }
+  }, [driverTab])
+
+  async function handleLogin(email: string, senha: string, lembrarAcesso = true) {
     setLoading(true)
     setMessage('')
     try {
       const response = await api.login(email, senha)
       setToken(response.access_token)
       await loadWorkspace(response.access_token)
+      if (!lembrarAcesso) {
+        api.logout(response.access_token).catch(() => {})
+      }
     } catch (error) {
       setMessage(describeError(error))
       setLoading(false)
@@ -120,8 +115,6 @@ function App() {
     await api.createSignupRequest(payload)
   }
 
-  const [showChangePassword, setShowChangePassword] = useState(false)
-
   function handleLogout() {
     api.logout(token).catch(() => {})
     setToken('')
@@ -129,14 +122,11 @@ function App() {
     setVehicles([])
     setVehiclesInRoute([])
     setTrips([])
-    setView('viagem')
   }
 
   async function refreshData() {
     await loadWorkspace(token)
   }
-
-  const navItemCount = 1 + (canSeeVehiclesInRoute ? 1 : 0) + (canRegisterTrips ? 2 : 0) + (canManageSignupRequests ? 2 : 0)
 
   if (loading && !user) {
     return (
@@ -160,130 +150,43 @@ function App() {
   }
 
   return (
-    <main className="app-shell">
-      <header className="topbar">
-        <div className="topbar-user">
-          <span className="brand-mark" aria-hidden="true">
-            <img className="brand-logo" src="/bello-b.png" alt="" />
-          </span>
-          <div>
-            <span className="eyebrow">Itinerario Bello</span>
-            <h1>{user.nome}</h1>
-            <div className="topbar-meta">
-              <StatusPill status={user.pode_aprovar ? 'fechamento' : user.perfil} />
-              {canRegisterTrips ? (
-                activeTrip ? (
-                  <StatusPill status="em_andamento" />
-                ) : (
-                  <StatusPill status="disponivel" />
-                )
-              ) : (
-                <StatusPill status="consulta" />
-              )}
-            </div>
-          </div>
-        </div>
-        <div className="topbar-actions">
-          <InstallPromptButton />
-          <button className="icon-button" type="button" onClick={() => void refreshData()} aria-label="Atualizar">
-            {loading ? <Loader2 className="spin" /> : <RefreshCw />}
-          </button>
-          <button className="icon-button" type="button" onClick={() => setShowChangePassword(true)} aria-label="Alterar senha">
-            <KeyRound />
-          </button>
-          <button className="icon-button" type="button" onClick={handleLogout} aria-label="Sair">
-            <LogOut />
-          </button>
-        </div>
-      </header>
+    <main className={`app-shell ${canRegisterTrips || isAdmin ? 'app-shell-with-nav' : ''}`}>
+      <div className="topbar-card">
+        <AppHeader token={token} user={user} onLogout={handleLogout} />
+      </div>
+
+      <StatusChipsRow visible={showStatusChips} />
 
       {message ? <div className="alert">{message}</div> : null}
 
-      <nav className="bottom-nav" style={{ gridTemplateColumns: `repeat(${navItemCount}, minmax(0, 1fr))` }} aria-label="Navegacao principal">
-        {canSeeVehiclesInRoute ? (
-          <button className={view === 'em_rota' ? 'active' : ''} type="button" onClick={() => setView('em_rota')}>
-            <Route />
-            <span>Em rota</span>
-          </button>
-        ) : null}
-        {canRegisterTrips ? (
-          <>
-            <button className={view === 'viagem' ? 'active' : ''} type="button" onClick={() => setView('viagem')}>
-              <CarFront />
-              <span>Viagem</span>
-            </button>
-            <button className={view === 'historico' ? 'active' : ''} type="button" onClick={() => setView('historico')}>
-              <History />
-              <span>Historico</span>
-            </button>
-          </>
-        ) : null}
-        <button
-          className={view === 'fechamento' ? 'active' : ''}
-          type="button"
-          onClick={() => setView('fechamento')}
-        >
-          {canReviewClosures ? <ShieldCheck /> : <ClipboardCheck />}
-          <span>Fechamento</span>
-        </button>
-        {canManageSignupRequests ? (
-          <>
-            <button
-              className={view === 'cadastros' ? 'active' : ''}
-              type="button"
-              onClick={() => setView('cadastros')}
-            >
-              <UserPlus />
-              <span>Cadastros</span>
-              {pendingCount > 0 ? <span className="nav-badge">{pendingCount}</span> : null}
-            </button>
-            <button
-              className={view === 'usuarios' ? 'active' : ''}
-              type="button"
-              onClick={() => setView('usuarios')}
-            >
-              <Users />
-              <span>Usuarios</span>
-            </button>
-          </>
-        ) : null}
-      </nav>
-
       <section className="content-area">
-        {view === 'em_rota' && canSeeVehiclesInRoute ? <VehiclesInRouteScreen vehiclesInRoute={vehiclesInRoute} /> : null}
-
-        {view === 'viagem' && canRegisterTrips ? (
-          <TripScreen
+        {isAdmin ? (
+          <AdminCentralScreen
+            token={token}
+            user={user}
+            vehiclesInRoute={vehiclesInRoute}
+            tab={adminTab}
+            onMessage={setMessage}
+          />
+        ) : canRegisterTrips ? (
+          <DriverCentralScreen
             token={token}
             user={user}
             vehicles={vehicles}
             trips={trips}
+            tab={driverTab}
             onChange={refreshData}
             onMessage={setMessage}
             onLogout={handleLogout}
+            onShowStatusChange={setShowStatusChips}
           />
-        ) : null}
-
-        {view === 'historico' && canRegisterTrips ? (
-          <HistoryScreen token={token} user={user} vehicles={vehicles} trips={trips} onMessage={setMessage} />
-        ) : null}
-
-        {view === 'fechamento' ? (
+        ) : (
           <MonthlyClosureScreen token={token} user={user} onMessage={setMessage} />
-        ) : null}
-
-        {view === 'cadastros' && canManageSignupRequests ? (
-          <SignupRequestsScreen token={token} onMessage={setMessage} />
-        ) : null}
-
-        {view === 'usuarios' && canManageSignupRequests ? (
-          <UsersScreen token={token} onMessage={setMessage} />
-        ) : null}
+        )}
       </section>
 
-      {showChangePassword ? (
-        <ChangePasswordModal token={token} onClose={() => setShowChangePassword(false)} />
-      ) : null}
+      {canRegisterTrips ? <BottomNav items={DRIVER_NAV_ITEMS} active={driverTab} onChange={setDriverTab} /> : null}
+      {isAdmin ? <BottomNav items={adminNavItems} active={adminTab} onChange={setAdminTab} /> : null}
     </main>
   )
 }

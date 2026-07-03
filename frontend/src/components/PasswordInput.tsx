@@ -1,12 +1,13 @@
 import { useId, useState } from 'react'
-import type { InputHTMLAttributes } from 'react'
+import type { InputHTMLAttributes, ReactNode } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 
 type PasswordInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> & {
   label: string
+  leadingIcon?: ReactNode
 }
 
-export function PasswordInput({ label, id, className, ...props }: PasswordInputProps) {
+export function PasswordInput({ label, leadingIcon, id, className, ...props }: PasswordInputProps) {
   const generatedId = useId()
   const inputId = id ?? generatedId
   const [visible, setVisible] = useState(false)
@@ -15,7 +16,8 @@ export function PasswordInput({ label, id, className, ...props }: PasswordInputP
   return (
     <label className={className} htmlFor={inputId}>
       <span>{label}</span>
-      <div className="password-field">
+      <div className={leadingIcon ? 'password-field has-leading-icon' : 'password-field'}>
+        {leadingIcon ? <span className="password-leading-icon">{leadingIcon}</span> : null}
         <input {...props} id={inputId} type={visible ? 'text' : 'password'} />
         <button
           className="password-toggle"

@@ -8,7 +8,11 @@ from app.models.enums import PerfilUsuario, StatusViagem, TipoDisponibilidadeVei
 from app.models.usuario import Usuario
 from app.models.veiculo import Veiculo
 from app.models.viagem import Viagem
-from app.services.veiculos import listar_veiculos_disponiveis_para_partida
+from app.services.veiculos import (
+    listar_veiculos_disponiveis_para_partida,
+    normalizar_marca_veiculo,
+    normalizar_modelo_veiculo,
+)
 from helpers import create_trip_in_progress
 
 
@@ -90,6 +94,20 @@ def test_veiculos_disponiveis_ocultam_proprio_de_outro_usuario_e_bloqueiam_viage
     finally:
         db.rollback()
         db.close()
+
+
+@pytest.mark.risco(
+    peso=20,
+    criticidade="media",
+    area="modelo_dados",
+    referencias=("RF-004",),
+)
+def test_normalizacao_modelo_veiculo_remove_marca_e_aplica_caixa_alta():
+    assert normalizar_modelo_veiculo("honda/hrv") == "HRV"
+    assert normalizar_modelo_veiculo(" VOLKSWAGEN POLO ") == "POLO"
+    assert normalizar_modelo_veiculo("T-cross") == "T-CROSS"
+    assert normalizar_modelo_veiculo("Onix") == "ONIX"
+    assert normalizar_marca_veiculo(" chevrolet ") == "CHEVROLET"
 
 
 @pytest.mark.autenticacao

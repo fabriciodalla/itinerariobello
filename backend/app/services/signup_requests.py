@@ -21,6 +21,7 @@ from app.schemas.signup_requests import (
     SignupRequestCreateRequest,
     SignupRequestRejectRequest,
 )
+from app.services.veiculos import normalizar_marca_veiculo, normalizar_modelo_veiculo
 
 
 def create_signup_request(db: Session, payload: SignupRequestCreateRequest) -> SolicitacaoCadastro:
@@ -44,8 +45,8 @@ def create_signup_request(db: Session, payload: SignupRequestCreateRequest) -> S
         cargo=payload.cargo.strip(),
         superior=payload.superior.strip(),
         veiculo_placa=placa,
-        veiculo_modelo=payload.veiculo_modelo.strip(),
-        veiculo_marca=payload.veiculo_marca.strip(),
+        veiculo_modelo=normalizar_modelo_veiculo(payload.veiculo_modelo),
+        veiculo_marca=normalizar_marca_veiculo(payload.veiculo_marca) or "",
         observacao=payload.observacao.strip() if payload.observacao else None,
     )
     db.add(solicitacao)
@@ -125,6 +126,11 @@ def _create_or_assign_vehicle(
     payload: SignupRequestApproveRequest,
 ) -> Veiculo:
     placa = solicitacao.veiculo_placa.strip().upper()
+    modelo = normalizar_modelo_veiculo(solicitacao.veiculo_modelo)
+    marca = normalizar_marca_veiculo(solicitacao.veiculo_marca) or ""
+    solicitacao.veiculo_modelo = modelo
+    solicitacao.veiculo_marca = marca
+
     disponibilidade = payload.tipo_disponibilidade
     if disponibilidade is None:
         disponibilidade = (
@@ -145,8 +151,8 @@ def _create_or_assign_vehicle(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Veiculo ja vinculado a outro usuario.",
             )
-        veiculo.modelo = solicitacao.veiculo_modelo
-        veiculo.marca = solicitacao.veiculo_marca
+        veiculo.modelo = modelo
+        veiculo.marca = marca
         veiculo.tipo = payload.tipo_veiculo
         veiculo.tipo_disponibilidade = disponibilidade
         veiculo.usuario_responsavel_id = usuario_responsavel_id
@@ -155,8 +161,8 @@ def _create_or_assign_vehicle(
 
     veiculo = Veiculo(
         placa=placa,
-        modelo=solicitacao.veiculo_modelo,
-        marca=solicitacao.veiculo_marca,
+        modelo=modelo,
+        marca=marca,
         tipo=payload.tipo_veiculo,
         tipo_disponibilidade=disponibilidade,
         usuario_responsavel_id=usuario_responsavel_id,

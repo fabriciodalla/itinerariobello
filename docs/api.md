@@ -8,7 +8,7 @@
 - Endpoints protegidos devem exigir token de acesso.
 - Validações críticas devem ocorrer no backend.
 - Upload de fotos deve aceitar arquivos de imagem definidos pela configuração do projeto.
-- Localizações GPS devem retornar latitude, longitude, endereço aproximado quando disponível, status de resolução e texto de exibição quando não houver endereço resolvido.
+- Localizações GPS devem retornar latitude, longitude, endereço aproximado quando disponível, incluindo número quando o provedor retornar essa informação, status de resolução e texto de exibição quando não houver endereço resolvido.
 - Aprovação individual de viagem não faz parte do fluxo vigente; o fechamento mensal por motorista usa apenas os status `aberto` e `fechado`.
 
 ## 2. Infraestrutura
@@ -74,8 +74,8 @@ Criação pública:
   "cargo": "Vendedor",
   "superior": "Nome do Superior",
   "veiculo_placa": "ABC1234",
-  "veiculo_modelo": "Onix",
-  "veiculo_marca": "Chevrolet",
+  "veiculo_modelo": "ONIX",
+  "veiculo_marca": "CHEVROLET",
   "observacao": "Opcional"
 }
 ```
@@ -148,7 +148,7 @@ Resposta:
     "viagem_id": "uuid-da-viagem",
     "veiculo_id": "uuid-do-veiculo",
     "placa": "ABC1234",
-    "modelo": "Onix",
+    "modelo": "ONIX",
     "motorista_id": "uuid-do-motorista",
     "motorista_nome": "Nome do Motorista",
     "em_rota": true,
@@ -164,8 +164,8 @@ Campos principais de veículo:
 | Campo | Tipo | Descrição |
 |---|---|---|
 | `placa` | Texto | Placa única do veículo |
-| `modelo` | Texto | Modelo do veículo |
-| `marca` | Texto ou nulo | Marca do veículo |
+| `modelo` | Texto | Modelo do veículo em caixa alta e sem marca como prefixo |
+| `marca` | Texto ou nulo | Marca do veículo em caixa alta, quando informada |
 | `tipo` | Enum | `proprio`, `alugado` ou `empresa` |
 | `tipo_disponibilidade` | Enum | `fixo` ou `alocado` |
 | `usuario_responsavel_id` | UUID ou nulo | Obrigatório para veículo `fixo` |
@@ -196,7 +196,7 @@ Cada item de `GET /trips` e `GET /trips/{id}` deve trazer dados suficientes para
   "usuario_nome": "Nome do Motorista",
   "veiculo_id": "uuid-do-veiculo",
   "veiculo_placa": "ABC1234",
-  "veiculo_modelo": "Onix",
+  "veiculo_modelo": "ONIX",
   "status": "em_andamento",
   "km_inicial": 12345.6,
   "km_final": null,
@@ -280,7 +280,7 @@ Resposta:
 }
 ```
 
-`endereco` pode retornar `null` quando a geocodificação reversa estiver desabilitada, indisponível, sem resposta válida ou sem endereço aproximado para a coordenada. Nesses casos, `endereco_resolvido` retorna `false` e `endereco_exibicao` retorna `"Endereco nao resolvido"` para uso em tela e exportação. O endpoint exige autenticação porque latitude e longitude são dados sensíveis.
+`endereco` pode retornar `null` quando a geocodificação reversa estiver desabilitada, indisponível, sem resposta válida ou sem endereço aproximado para a coordenada. Quando o provedor retornar `house_number`, o endereço deve incluir o número junto ao logradouro; quando não retornar, a API não inventa número aproximado. Nesses casos, `endereco_resolvido` retorna `false` e `endereco_exibicao` retorna `"Endereco nao resolvido"` para uso em tela e exportação. O endpoint exige autenticação porque latitude e longitude são dados sensíveis.
 
 ## 9. Relatórios E Fechamento Mensal
 
@@ -386,7 +386,7 @@ Item de resposta:
   "usuario_nome": "Nome do Motorista",
   "veiculo_id": "uuid-do-veiculo",
   "veiculo_placa": "ABC1234",
-  "veiculo_modelo": "Onix",
+  "veiculo_modelo": "ONIX",
   "partida_em": "2026-05-01T08:00:00Z",
   "chegada_em": "2026-05-01T18:00:00Z",
   "km_inicial": 12345.6,

@@ -179,7 +179,7 @@ export function MonthlyClosureScreen({ token, user, onMessage }: MonthlyClosureS
 
   if (!canReview) {
     return (
-      <section className="panel">
+      <section className="panel panel-edge-bottom">
         <div className="section-title">
           <ShieldCheck />
           <h2>Fechamento mensal</h2>
@@ -190,7 +190,7 @@ export function MonthlyClosureScreen({ token, user, onMessage }: MonthlyClosureS
   }
 
   return (
-    <section className="panel">
+    <section className="panel panel-edge-bottom">
       <div className="section-title">
         <FileText />
         <h2>Fechamento mensal</h2>

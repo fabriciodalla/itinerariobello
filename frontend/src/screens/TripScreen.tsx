@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
-import { ArrowLeft, CarFront, CheckCircle2, Gauge, Loader2, LogOut, Send } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { MouseEvent, PointerEvent, ReactNode } from 'react'
+import { ArrowLeft, CarFront, CheckCircle2, Gauge, Info, Loader2, LogOut, Send } from 'lucide-react'
 import { CameraCapture } from '../components/CameraCapture'
 import { GpsBadge } from '../components/GpsBadge'
 import { StatusPill } from '../components/StatusPill'
@@ -7,6 +8,7 @@ import { api, ApiError } from '../services/api'
 import type { GpsPayload, Trip, User, Vehicle } from '../types/domain'
 import { formatDateTime, formatKm, numberValue } from '../utils/format'
 import { tripVehicleLabel } from '../utils/trips'
+import { vehicleImageForModel } from '../utils/vehicleImages'
 
 interface TripScreenProps {
   token: string
@@ -16,23 +18,42 @@ interface TripScreenProps {
   onChange: () => Promise<void>
   onMessage: (message: string) => void
   onLogout: () => void
+  onShowStatusChange: (show: boolean) => void
 }
 
 type StartStep = 'selecionar' | 'partida'
-export function TripScreen({ token, user, vehicles, trips, onChange, onMessage, onLogout }: TripScreenProps) {
+export function TripScreen({ token, user, vehicles, trips, onChange, onMessage, onLogout, onShowStatusChange }: TripScreenProps) {
   const [completed, setCompleted] = useState(false)
   const [arrivalTripId, setArrivalTripId] = useState<string | null>(null)
   const activeTrip = useMemo(
     () => trips.find((trip) => trip.status === 'em_andamento' && trip.usuario_id === user.id) ?? null,
     [trips, user.id],
   )
+  const showingArrival = Boolean(activeTrip && arrivalTripId === activeTrip.id)
+
+  useEffect(() => {
+    if (completed || !activeTrip) {
+      return
+    }
+    onShowStatusChange(showingArrival)
+  }, [completed, activeTrip, showingArrival, onShowStatusChange])
+
+  useEffect(() => {
+    if (completed) {
+      onShowStatusChange(false)
+    }
+  }, [completed, onShowStatusChange])
+
+  useEffect(() => {
+    return () => onShowStatusChange(false)
+  }, [onShowStatusChange])
 
   if (completed) {
     return <CompletionPanel onLogout={onLogout} onNewTrip={() => setCompleted(false)} />
   }
 
   if (activeTrip) {
-    if (arrivalTripId !== activeTrip.id) {
+    if (!showingArrival) {
       return (
         <InProgressPanel
           trip={activeTrip}
@@ -55,7 +76,7 @@ export function TripScreen({ token, user, vehicles, trips, onChange, onMessage, 
     )
   }
 
-  return <StartForm token={token} vehicles={vehicles} onChange={onChange} onMessage={onMessage} />
+  return <StartForm token={token} vehicles={vehicles} onChange={onChange} onMessage={onMessage} onShowStatusChange={onShowStatusChange} />
 }
 
 function StartForm({
@@ -63,9 +84,12 @@ function StartForm({
   vehicles,
   onChange,
   onMessage,
-}: Pick<TripScreenProps, 'token' | 'vehicles' | 'onChange' | 'onMessage'>) {
+  onShowStatusChange,
+}: Pick<TripScreenProps, 'token' | 'vehicles' | 'onChange' | 'onMessage' | 'onShowStatusChange'>) {
   const preferredVehicle = useMemo(() => vehicles.find((vehicle) => vehicle.prioritario) ?? vehicles[0] ?? null, [vehicles])
   const [step, setStep] = useState<StartStep>('selecionar')
+  const vehicleListRef = useRef<HTMLDivElement>(null)
+  const dragRef = useRef({ active: false, startX: 0, scrollLeft: 0, dragged: false })
   const [selectedVehicleId, setSelectedVehicleId] = useState('')
   const [kmInicial, setKmInicial] = useState('')
   const [photo, setPhoto] = useState<File | null>(null)
@@ -76,6 +100,11 @@ function StartForm({
     ? selectedVehicleId
     : preferredVehicle?.id ?? ''
   const selectedVehicle = vehicles.find((vehicle) => vehicle.id === selectedVehicleIdForSubmit) ?? null
+
+  useEffect(() => {
+    onShowStatusChange(step === 'partida' && Boolean(selectedVehicle))
+  }, [step, selectedVehicle, onShowStatusChange])
+
   const kmInicialNumber = Number(kmInicial)
   const hasValidKmInicial = kmInicial.trim() !== '' && Number.isFinite(kmInicialNumber) && kmInicialNumber >= 0
   const missingFields = [
@@ -105,23 +134,56 @@ function StartForm({
     }
   }
 
+  function handleVehicleListPointerDown(event: PointerEvent<HTMLDivElement>) {
+    if (event.pointerType !== 'mouse') return
+    const el = vehicleListRef.current
+    if (!el) return
+    dragRef.current = { active: true, startX: event.clientX, scrollLeft: el.scrollLeft, dragged: false }
+    el.setPointerCapture(event.pointerId)
+  }
+
+  function handleVehicleListPointerMove(event: PointerEvent<HTMLDivElement>) {
+    const el = vehicleListRef.current
+    const drag = dragRef.current
+    if (!el || !drag.active) return
+    const delta = event.clientX - drag.startX
+    if (Math.abs(delta) > 4) drag.dragged = true
+    el.scrollLeft = drag.scrollLeft - delta
+  }
+
+  function handleVehicleListPointerUp(event: PointerEvent<HTMLDivElement>) {
+    dragRef.current.active = false
+    vehicleListRef.current?.releasePointerCapture(event.pointerId)
+  }
+
+  function handleVehicleListClickCapture(event: MouseEvent<HTMLDivElement>) {
+    if (dragRef.current.dragged) {
+      event.stopPropagation()
+      event.preventDefault()
+    }
+  }
+
   if (step === 'selecionar' || !selectedVehicle) {
     return (
-      <section className="panel">
+      <section className="panel panel-edge-bottom">
         <div className="section-title">
           <CarFront />
           <div>
             <h2>Selecionar carro</h2>
-            <p>Escolha o veiculo antes da partida.</p>
+            <p>Escolha o veiculo para dar continuidade.</p>
           </div>
-        </div>
-        <div className="step-strip" aria-label="Etapas da partida">
-          <span className="active">1. Carro</span>
-          <span>2. Partida</span>
         </div>
         {vehicles.length ? (
           <>
-            <div className="vehicle-list">
+            <div
+              className="vehicle-list"
+              ref={vehicleListRef}
+              onPointerDown={handleVehicleListPointerDown}
+              onPointerMove={handleVehicleListPointerMove}
+              onPointerUp={handleVehicleListPointerUp}
+              onPointerLeave={handleVehicleListPointerUp}
+              onClickCapture={handleVehicleListClickCapture}
+            >
               {vehicles.map((vehicle) => (
                 <VehicleOption
                   key={vehicle.id}
@@ -131,12 +193,19 @@ function StartForm({
                 />
               ))}
             </div>
+            <div className="info-card">
+              <Info aria-hidden="true" />
+              <div>
+                <strong>Informacoes importantes</strong>
+                <p>Certifique-se de selecionar o veiculo correto antes de iniciar suas atividades.</p>
+              </div>
+            </div>
             <button
-              className="primary-button full"
+              className="primary-button full gradient-button"
               type="button"
               onClick={() => (selectedVehicle ? setStep('partida') : onMessage('Selecione um veiculo.'))}
             >
-              <CheckCircle2 />
+              <CarFront />
               <span>Confirmar carro</span>
             </button>
           </>
@@ -148,7 +217,7 @@ function StartForm({
   }
 
   return (
-    <section className="panel">
+    <section className="panel panel-edge-bottom">
       <div className="section-title">
         <Gauge />
         <div>
@@ -156,24 +225,19 @@ function StartForm({
           <p>Km, foto e GPS obrigatorios.</p>
         </div>
       </div>
-      <div className="step-strip" aria-label="Etapas da partida">
-        <span>1. Carro</span>
-        <span className="active">2. Partida</span>
-      </div>
       {selectedVehicle ? (
-        <div className="selected-vehicle-card">
-          <div>
-            <span>Carro selecionado</span>
-            <strong>
-              {selectedVehicle.placa} | {selectedVehicle.modelo}
-            </strong>
-            <small>{vehicleAvailabilityLabel(selectedVehicle)}</small>
-          </div>
-          <button className="secondary-button compact" type="button" onClick={() => setStep('selecionar')}>
-            <ArrowLeft />
-            <span>Trocar</span>
-          </button>
-        </div>
+        <VehicleThumbCard
+          modelo={selectedVehicle.modelo}
+          label="Carro selecionado"
+          title={`${selectedVehicle.placa} | ${selectedVehicle.modelo}`}
+          subtitle={vehicleAvailabilityLabel(selectedVehicle)}
+          trailing={
+            <button className="primary-button compact" type="button" onClick={() => setStep('selecionar')}>
+              <ArrowLeft />
+              <span>Trocar</span>
+            </button>
+          }
+        />
       ) : null}
       <label>
         <span>Km inicial</span>
@@ -254,7 +318,7 @@ function ArrivalForm({
   }
 
   return (
-    <section className="panel">
+    <section className="panel panel-edge-bottom">
       <div className="section-title">
         <CheckCircle2 />
         <div>
@@ -262,11 +326,8 @@ function ArrivalForm({
           <p>Finalize com km, rota, foto e GPS.</p>
         </div>
       </div>
-      <div className="trip-summary">
-        <div>
-          <span>Veiculo</span>
-          <strong>{vehicleLabel}</strong>
-        </div>
+      <VehicleThumbCard modelo={trip.veiculo_modelo || vehicle?.modelo || ''} label="Veiculo" title={vehicleLabel} />
+      <div className="trip-summary cols-3">
         <div>
           <span>Km inicial</span>
           <strong>{formatKm(trip.km_inicial)}</strong>
@@ -325,15 +386,16 @@ function InProgressPanel({
 }) {
   const vehicle = vehicles.find((item) => item.id === trip.veiculo_id)
   return (
-    <section className="panel completion-panel">
+    <section className="panel panel-edge-bottom completion-panel">
       <Gauge />
       <h2>Viagem em andamento</h2>
       <p>Partida registrada. Voce pode sair do aplicativo e registrar a chegada depois.</p>
-      <div className="trip-summary full">
-        <div>
-          <span>Veiculo</span>
-          <strong>{tripVehicleLabel(trip, vehicle)}</strong>
-        </div>
+      <VehicleThumbCard
+        modelo={trip.veiculo_modelo || vehicle?.modelo || ''}
+        label="Veiculo"
+        title={tripVehicleLabel(trip, vehicle)}
+      />
+      <div className="trip-summary full cols-2">
         <div>
           <span>Km inicial</span>
           <strong>{formatKm(trip.km_inicial)}</strong>
@@ -355,6 +417,36 @@ function InProgressPanel({
   )
 }
 
+function VehicleThumbCard({
+  modelo,
+  label,
+  title,
+  subtitle,
+  trailing,
+}: {
+  modelo: string
+  label: string
+  title: string
+  subtitle?: string
+  trailing?: ReactNode
+}) {
+  const vehicleImage = vehicleImageForModel(modelo)
+
+  return (
+    <div className="selected-vehicle-card">
+      <span className="vehicle-thumb" aria-hidden="true">
+        {vehicleImage ? <img src={vehicleImage} alt="" draggable={false} loading="lazy" /> : <CarFront />}
+      </span>
+      <div>
+        <span>{label}</span>
+        <strong>{title}</strong>
+        {subtitle ? <small>{subtitle}</small> : null}
+      </div>
+      {trailing}
+    </div>
+  )
+}
+
 function VehicleOption({
   vehicle,
   selected,
@@ -364,6 +456,8 @@ function VehicleOption({
   selected: boolean
   onSelect: () => void
 }) {
+  const vehicleImage = vehicleImageForModel(vehicle.modelo)
+
   return (
     <button
       className={`vehicle-option ${selected ? 'selected' : ''}`}
@@ -371,15 +465,13 @@ function VehicleOption({
       onClick={onSelect}
       aria-pressed={selected}
     >
-      <span className="vehicle-option-main">
-        <span className="vehicle-icon" aria-hidden="true">
-          <CarFront />
-        </span>
-        <span className="vehicle-copy">
-          <strong>{vehicle.placa}</strong>
-          <span>{vehicle.modelo}</span>
-        </span>
-        {selected ? <CheckCircle2 className="vehicle-check" aria-hidden="true" /> : null}
+      <span className="vehicle-photo" aria-hidden="true">
+        {vehicleImage ? <img src={vehicleImage} alt="" draggable={false} loading="lazy" /> : <CarFront />}
+        {selected ? <CheckCircle2 className="vehicle-check" /> : null}
+      </span>
+      <span className="vehicle-copy">
+        <strong>{vehicle.placa}</strong>
+        <span className="vehicle-model">{vehicle.modelo}</span>
       </span>
       <small>{vehicleAvailabilityLabel(vehicle)}</small>
     </button>
@@ -402,7 +494,7 @@ function vehicleAvailabilityLabel(vehicle: Vehicle) {
 
 function CompletionPanel({ onLogout, onNewTrip }: { onLogout: () => void; onNewTrip: () => void }) {
   return (
-    <section className="panel completion-panel">
+    <section className="panel panel-edge-bottom completion-panel">
       <CheckCircle2 />
       <h2>Itinerario registrado</h2>
       <p>A viagem ficou pronta para o fechamento mensal.</p>

@@ -8,11 +8,13 @@ export default defineConfig({
     host: true,
     proxy: {
       '/auth': 'http://localhost:8000',
+      '/users': 'http://localhost:8000',
       '/vehicles': 'http://localhost:8000',
       '/trips': 'http://localhost:8000',
       '/reports': 'http://localhost:8000',
       '/photos': 'http://localhost:8000',
       '/geocoding': 'http://localhost:8000',
+      '/signup-requests': 'http://localhost:8000',
     },
   },
   plugins: [
@@ -45,7 +47,7 @@ export default defineConfig({
         runtimeCaching: [
           {
             urlPattern: ({ url }) =>
-              ['/auth', '/vehicles', '/trips', '/reports', '/photos', '/geocoding'].some(
+              ['/auth', '/users', '/vehicles', '/trips', '/reports', '/photos', '/geocoding', '/signup-requests'].some(
                 (p) => url.pathname.startsWith(p),
               ),
             handler: 'NetworkFirst',

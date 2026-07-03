@@ -75,3 +75,88 @@ def test_geocodificacao_reversa_desabilitada_retorna_endereco_nulo(api_client, g
         "endereco_resolvido": False,
         "endereco_exibicao": "Endereco nao resolvido",
     }
+
+
+@pytest.mark.gps
+@pytest.mark.risco(peso=20, criticidade="media", area="gps", referencias=("RF-007", "RF-010", "RN-023"))
+def test_geocodificacao_reversa_formata_endereco_com_numero_quando_disponivel(monkeypatch):
+    from app.services import geocoding as geocoding_service
+
+    captured: dict[str, object] = {}
+
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, object]:
+            return {
+                "display_name": "Rua Teste, Centro, Cidade - UF, Brasil",
+                "address": {
+                    "road": "Rua Teste",
+                    "house_number": "123",
+                    "suburb": "Centro",
+                    "city": "Cidade",
+                    "state": "UF",
+                    "country": "Brasil",
+                },
+            }
+
+    class FakeClient:
+        def __init__(self, timeout: float):
+            captured["timeout"] = timeout
+
+        def __enter__(self) -> "FakeClient":
+            return self
+
+        def __exit__(self, *_exc: object) -> None:
+            return None
+
+        def get(self, url: str, params: dict[str, object], headers: dict[str, str]) -> FakeResponse:
+            captured["url"] = url
+            captured["params"] = params
+            captured["headers"] = headers
+            return FakeResponse()
+
+    monkeypatch.setattr(geocoding_service.httpx, "Client", FakeClient)
+
+    endereco = geocoding_service.reverse_geocode(
+        Decimal("-23.55052"),
+        Decimal("-46.633308"),
+        SimpleNamespace(
+            reverse_geocoding_enabled=True,
+            reverse_geocoding_provider="nominatim",
+            reverse_geocoding_timeout_seconds=5,
+            reverse_geocoding_user_agent="itinerario-bello-teste/0.1",
+            nominatim_reverse_url="https://nominatim.openstreetmap.org/reverse",
+        ),
+    )
+
+    assert endereco == "Rua Teste, 123, Centro, Cidade - UF, Brasil"
+    assert captured["params"] == {
+        "format": "jsonv2",
+        "lat": "-23.55052",
+        "lon": "-46.633308",
+        "addressdetails": 1,
+        "accept-language": "pt-BR",
+    }
+
+
+@pytest.mark.gps
+@pytest.mark.risco(peso=20, criticidade="media", area="gps", referencias=("RF-007", "RF-010", "RN-023"))
+def test_geocodificacao_reversa_nao_inventa_numero_quando_provedor_nao_informa():
+    from app.services.geocoding import formatar_endereco_nominatim
+
+    endereco = formatar_endereco_nominatim(
+        {
+            "display_name": "Rua Sem Numero, Centro, Cidade - UF, Brasil",
+            "address": {
+                "road": "Rua Sem Numero",
+                "suburb": "Centro",
+                "city": "Cidade",
+                "state": "UF",
+                "country": "Brasil",
+            },
+        }
+    )
+
+    assert endereco == "Rua Sem Numero, Centro, Cidade - UF, Brasil"

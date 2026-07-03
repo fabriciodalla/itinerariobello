@@ -13,6 +13,54 @@ STATUS_BLOQUEIA_VEICULO_NO_DIA = (
     StatusViagem.concluida,
 )
 
+MARCAS_PREFIXO_MODELO = (
+    "MERCEDES-BENZ",
+    "MERCEDES BENZ",
+    "VOLKSWAGEN",
+    "CHEVROLET",
+    "MITSUBISHI",
+    "HYUNDAI",
+    "RENAULT",
+    "TOYOTA",
+    "HONDA",
+    "FIAT",
+    "FORD",
+    "JEEP",
+    "KIA",
+    "NISSAN",
+    "PEUGEOT",
+    "CITROEN",
+    "CITROËN",
+    "AUDI",
+    "BMW",
+    "VOLVO",
+    "VW",
+    "GM",
+)
+
+
+def _compactar_espacos(valor: str) -> str:
+    return " ".join((valor or "").strip().split())
+
+
+def normalizar_modelo_veiculo(valor: str) -> str:
+    modelo = _compactar_espacos(valor)
+    partes_barra = [parte.strip() for parte in modelo.split("/") if parte.strip()]
+    if len(partes_barra) >= 2:
+        modelo = partes_barra[-1]
+
+    modelo = _compactar_espacos(modelo).upper()
+    for marca in MARCAS_PREFIXO_MODELO:
+        prefixo = f"{marca} "
+        if modelo.startswith(prefixo):
+            return _compactar_espacos(modelo[len(prefixo) :])
+    return modelo
+
+
+def normalizar_marca_veiculo(valor: str | None) -> str | None:
+    marca = _compactar_espacos(valor or "")
+    return marca.upper() if marca else None
+
 
 def intervalo_do_dia(data_referencia: date) -> tuple[datetime, datetime]:
     inicio = datetime.combine(data_referencia, time.min, tzinfo=timezone.utc)

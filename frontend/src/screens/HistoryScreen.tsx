@@ -89,7 +89,7 @@ export function HistoryScreen({
   }
 
   return (
-    <section className="panel">
+    <section className="panel panel-edge-bottom">
       <div className="section-title">
         <Search />
         <h2>Historico</h2>

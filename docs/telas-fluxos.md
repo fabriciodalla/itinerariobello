@@ -26,6 +26,7 @@ Autenticar o usuário com e-mail e senha.
 - Campo de e-mail.
 - Campo de senha.
 - Botão de olho no campo de senha para alternar entre texto visível e senha oculta.
+- Opção `Lembrar meu acesso`, mantendo cookie de sessão quando marcada e usando apenas sessão em memória quando desmarcada.
 - Botão de entrar.
 - Link de recuperação de senha.
 - Link de solicitação de cadastro.
@@ -134,6 +135,8 @@ Permitir que o usuário escolha o veículo antes de iniciar a viagem.
 - Lista de veículos próprios vinculados ao usuário.
 - Lista de veículos de empresa disponíveis.
 - Dados mínimos do veículo: placa, modelo, tipo e disponibilidade.
+- Imagem do carro resolvida automaticamente pelo modelo, quando houver arquivo correspondente em `carros/`.
+- Veículo selecionado com fundo de destaque e textos brancos.
 - Botão para confirmar seleção.
 
 ### Critérios De Aceite
@@ -155,7 +158,7 @@ Registrar início da viagem com km inicial, foto do hodômetro e GPS.
 - Botão principal para abrir a câmera nativa do celular.
 - Botão secundário para anexar foto da galeria.
 - Captura automática de GPS.
-- Exibição do endereço aproximado quando resolvido.
+- Exibição do endereço aproximado quando resolvido, incluindo número quando disponível.
 - Indicador de resolução de endereço após capturar o GPS, exibindo `Endereco nao resolvido` quando a geocodificação não retornar endereço.
 - Indicador de foto anexada.
 - Indicador de GPS capturado.
@@ -201,7 +204,7 @@ Registrar fim da viagem com km final, foto do hodômetro, GPS e rota utilizada.
 - Botão principal para abrir a câmera nativa do celular.
 - Botão secundário para anexar foto da galeria.
 - Captura automática de GPS.
-- Exibição do endereço aproximado quando resolvido.
+- Exibição do endereço aproximado quando resolvido, incluindo número quando disponível.
 - Indicador de resolução de endereço após capturar o GPS, exibindo `Endereco nao resolvido` quando a geocodificação não retornar endereço.
 - Campo de rota utilizada.
 - Resumo do km inicial e veículo.

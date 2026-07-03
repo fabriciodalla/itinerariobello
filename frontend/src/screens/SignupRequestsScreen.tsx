@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Check, Loader2, RefreshCw, UserPlus, X } from 'lucide-react'
+import { Check, Loader2, UserPlus, X } from 'lucide-react'
 import { PasswordInput } from '../components/PasswordInput'
 import { StatusPill } from '../components/StatusPill'
 import { ApiError, api } from '../services/api'
@@ -36,11 +36,9 @@ function initialDecision(): DecisionState {
 export function SignupRequestsScreen({ token, onMessage }: SignupRequestsScreenProps) {
   const [requests, setRequests] = useState<SignupRequest[]>([])
   const [users, setUsers] = useState<User[]>([])
-  const [loading, setLoading] = useState(false)
   const [decisions, setDecisions] = useState<Record<string, DecisionState>>({})
 
   const load = useCallback(async () => {
-    setLoading(true)
     try {
       const [pendingRequests, adminUsers] = await Promise.all([
         api.signupRequests(token, 'pendente'),
@@ -57,8 +55,6 @@ export function SignupRequestsScreen({ token, onMessage }: SignupRequestsScreenP
       })
     } catch (error) {
       onMessage(error instanceof ApiError ? error.message : 'Nao foi possivel carregar os cadastros.')
-    } finally {
-      setLoading(false)
     }
   }, [onMessage, token])
 
@@ -120,20 +116,13 @@ export function SignupRequestsScreen({ token, onMessage }: SignupRequestsScreenP
   }
 
   return (
-    <section className="panel">
+    <section className="panel panel-edge-bottom">
       <div className="section-title">
         <UserPlus />
         <div>
           <h2>Cadastros</h2>
           <p>Solicitacoes pendentes</p>
         </div>
-      </div>
-
-      <div className="action-row">
-        <button className="secondary-button" type="button" onClick={() => void load()} disabled={loading}>
-          {loading ? <Loader2 className="spin" /> : <RefreshCw />}
-          <span>Atualizar</span>
-        </button>
       </div>
 
       <div className="item-list">

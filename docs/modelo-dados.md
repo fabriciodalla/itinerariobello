@@ -44,8 +44,8 @@ Observação: usuários importados da planilha operacional com perfil `motorista
 |---|---|---|---|
 | `id` | UUID | Sim | Identificador único |
 | `placa` | Texto | Sim | Deve ser única |
-| `modelo` | Texto | Sim | Exemplo: Onix, Saveiro |
-| `marca` | Texto | Não | Marca do veículo quando informada no cadastro ou na solicitação pública |
+| `modelo` | Texto | Sim | Modelo padronizado em caixa alta, sem marca como prefixo. Exemplo: `ONIX`, `SAVEIRO`, `HRV` |
+| `marca` | Texto | Não | Marca do veículo quando informada no cadastro ou na solicitação pública, padronizada em caixa alta |
 | `tipo` | Enum | Sim | `proprio`, `alugado`, `empresa` |
 | `tipo_disponibilidade` | Enum | Sim | `fixo` ou `alocado` |
 | `usuario_responsavel_id` | UUID | Depende | Obrigatório quando `tipo_disponibilidade = fixo` |
@@ -54,6 +54,12 @@ Observação: usuários importados da planilha operacional com perfil `motorista
 | `ativo` | Booleano | Sim | Controla disponibilidade |
 | `criado_em` | Data/hora | Sim | Auditoria |
 | `atualizado_em` | Data/hora | Sim | Auditoria |
+
+Padronização de nomenclatura:
+
+- O campo `modelo` deve ser salvo em caixa alta.
+- Quando o texto vier no formato `MARCA/MODELO` ou com marca conhecida antes do modelo, salvar somente o modelo. Exemplo: `Honda/HRV` deve virar `HRV`.
+- A marca deve permanecer no campo próprio `marca`, quando informada.
 
 Regras de disponibilidade:
 
@@ -104,7 +110,7 @@ Viagens com `status = em_andamento` alimentam a tela inicial `Em rota`, junto do
 | `latitude` | Decimal | Sim | Coordenada capturada |
 | `longitude` | Decimal | Sim | Coordenada capturada |
 | `precisao_metros` | Decimal | Não | Quando disponível |
-| `endereco` | Texto | Não | Endereço aproximado resolvido a partir das coordenadas ou recebido no payload; permanece nulo quando não resolvido |
+| `endereco` | Texto | Não | Endereço aproximado resolvido a partir das coordenadas ou recebido no payload, incluindo número quando retornado pelo provedor; permanece nulo quando não resolvido |
 | `capturado_em` | Data/hora | Sim | Horário da captura |
 
 ## 8. FechamentoMensal
@@ -172,8 +178,8 @@ Regras técnicas:
 | `cargo` | Texto | Sim | Cargo informado pelo solicitante |
 | `superior` | Texto | Sim | Superior informado pelo solicitante, ainda sem vínculo técnico |
 | `veiculo_placa` | Texto | Sim | Placa do veículo informado |
-| `veiculo_modelo` | Texto | Sim | Modelo do veículo informado |
-| `veiculo_marca` | Texto | Sim | Marca do veículo informado |
+| `veiculo_modelo` | Texto | Sim | Modelo do veículo informado, salvo em caixa alta e sem marca como prefixo |
+| `veiculo_marca` | Texto | Sim | Marca do veículo informado, salva em caixa alta |
 | `observacao` | Texto | Não | Informação complementar do solicitante |
 | `status` | Enum | Sim | `pendente`, `aprovada` ou `rejeitada` |
 | `usuario_id` | UUID | Não | Usuário criado quando aprovado |
@@ -213,7 +219,7 @@ Viagem 1:N LocalizacaoGPS
 - Usar campos `criado_em` e `atualizado_em` nas tabelas principais.
 - Nunca salvar senha em texto puro.
 - Guardar fotos localmente no protótipo e manter caminho no banco.
-- Guardar endereço do GPS como dado complementar e aproximado, sem substituir latitude e longitude; texto como `"Endereco nao resolvido"` deve ser gerado para exibição/exportação, não salvo como endereço real.
+- Guardar endereço do GPS como dado complementar e aproximado, sem substituir latitude e longitude; incluir número somente quando retornado pelo provedor; texto como `"Endereco nao resolvido"` deve ser gerado para exibição/exportação, não salvo como endereço real.
 - Calcular `km_rodado` a partir de `km_final - km_inicial`.
 - Validar status da viagem no backend.
 - Validar status do fechamento mensal no backend.
