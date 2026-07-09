@@ -170,6 +170,51 @@ server {
 
 Se o proxy principal tambem estiver em container Docker, pode ser necessario usar uma rede Docker compartilhada em vez de `127.0.0.1:8082`.
 
+## Alternativa: Acesso Direto Pela Rede Local, Sem Dominio
+
+Quando ainda nao existe dominio nem proxy principal configurado para este projeto, e o objetivo e apenas abrir o app a partir de outros computadores/celulares da mesma rede local, use o IP da VM diretamente.
+
+Camera, GPS e a instalacao do PWA exigem contexto seguro (HTTPS) em qualquer origem que nao seja `localhost`. Como so ha uma porta externa liberada (`8082`), o `docker-compose.vm.yml` mapeia essa porta direto para o bloco HTTPS (443) do Nginx interno, com certificado autoassinado gerado no build da imagem do frontend com o IP da VM no `subjectAltName` (`CERT_SAN_IP`, ver `frontend/Dockerfile` e `docker-compose.vm.yml`). Nao ha mais acesso HTTP puro nessa porta.
+
+Descobrir o IP da VM na rede local:
+
+```bash
+hostname -I
+```
+
+Adicionar ao `.env.production`, alem das variaveis da secao anterior:
+
+```env
+VM_LAN_IP=192.168.0.50
+FRONTEND_HTTP_PORT=8082
+CORS_ORIGINS=https://192.168.0.50:8082
+FRONTEND_BASE_URL=https://192.168.0.50:8082
+COOKIE_SECURE=true
+```
+
+Como `APP_DOMAIN` nao existe nesse cenario, basta remover essa linha do `.env.production` (ela so e usada como referencia documental, nao e lida pelo Compose).
+
+Subir (o `--build` e obrigatorio para gravar `VM_LAN_IP` no certificado):
+
+```bash
+docker compose --env-file .env.production -f docker-compose.vm.yml up -d --build
+docker compose --env-file .env.production -f docker-compose.vm.yml exec api alembic upgrade head
+```
+
+A porta `8082` ja deve estar liberada no firewall (era usada para HTTP). Se precisar confirmar:
+
+```bash
+sudo ufw allow 8082/tcp
+```
+
+Acessar de outro computador da mesma rede: `https://192.168.0.50:8082` (nao mais `http://`). O certificado e autoassinado, entao o navegador mostra aviso de seguranca — em Chrome/Edge, clicar em "Avancado" e depois "Continuar para o site" (uma vez por navegador/dispositivo).
+
+Para trocar o IP depois (ex: a VM recebeu outro IP), atualizar `VM_LAN_IP` no `.env.production` e refazer o build:
+
+```bash
+docker compose --env-file .env.production -f docker-compose.vm.yml up -d --build frontend
+```
+
 ## Base Limpa
 
 Para comecar producao sem banco e sem fotos locais, nao transferir `storage/photos/` e nao restaurar dump local.
