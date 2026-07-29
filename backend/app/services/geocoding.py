@@ -1,11 +1,23 @@
 from __future__ import annotations
 
+import threading
+import time
 from decimal import Decimal
 from typing import Any
 
 import httpx
 
 from app.core.config import Settings
+
+_CACHE_TTL_SECONDS = 600.0
+_cache_lock = threading.Lock()
+_cache: dict[tuple[str, str], tuple[float, str | None]] = {}
+
+
+def _cache_key(latitude: Decimal, longitude: Decimal) -> tuple[str, str]:
+    # 3 casas decimais (~110m) e suficiente para endereco e reduz chamadas
+    # repetidas ao Nominatim, que limita a ~1 requisicao/segundo por IP.
+    return (f"{latitude:.3f}", f"{longitude:.3f}")
 
 
 def normalizar_endereco(endereco: object) -> str | None:
@@ -64,6 +76,13 @@ def reverse_geocode(latitude: Decimal, longitude: Decimal, settings: Settings) -
     if settings.reverse_geocoding_provider != "nominatim":
         return None
 
+    key = _cache_key(latitude, longitude)
+    now = time.monotonic()
+    with _cache_lock:
+        cached = _cache.get(key)
+    if cached is not None and now - cached[0] < _CACHE_TTL_SECONDS:
+        return cached[1]
+
     try:
         with httpx.Client(timeout=settings.reverse_geocoding_timeout_seconds) as client:
             response = client.get(
@@ -84,4 +103,8 @@ def reverse_geocode(latitude: Decimal, longitude: Decimal, settings: Settings) -
 
     if not isinstance(data, dict):
         return None
-    return formatar_endereco_nominatim(data)
+
+    endereco = formatar_endereco_nominatim(data)
+    with _cache_lock:
+        _cache[key] = (now, endereco)
+    return endereco
