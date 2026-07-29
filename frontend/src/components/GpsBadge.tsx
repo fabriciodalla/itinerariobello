@@ -25,9 +25,10 @@ export function GpsBadge({ label, token, onGpsChange }: GpsBadgeProps) {
   const visibleGps = gpsBlockedByOrigin ? null : gps
   const latitude = visibleGps?.latitude ?? null
   const longitude = visibleGps?.longitude ?? null
-  const coordinateKey = latitude !== null && longitude !== null ? `${latitude.toFixed(6)},${longitude.toFixed(6)}` : ''
-  const resolvedAddress = addressLookup.key === coordinateKey ? addressLookup.endereco : null
-  const addressDisplay = addressLookup.key === coordinateKey ? addressLookup.enderecoExibicao : null
+  // 4 casas decimais (~11m) evita que o jitter normal do GPS gere uma chave nova a cada leitura do watchPosition
+  const coordinateKey = latitude !== null && longitude !== null ? `${latitude.toFixed(4)},${longitude.toFixed(4)}` : ''
+  const resolvedAddress = addressLookup.endereco
+  const addressDisplay = addressLookup.enderecoExibicao
   const resolvingAddress = Boolean(coordinateKey && token && addressLookup.key !== coordinateKey)
   const gpsWithAddress = useMemo<GpsPayload | null>(() => {
     if (!visibleGps) {
@@ -51,16 +52,17 @@ export function GpsBadge({ label, token, onGpsChange }: GpsBadgeProps) {
       .reverseGeocode(token, latitude, longitude, controller.signal)
       .then((response) => {
         if (active) {
-          setAddressLookup({
+          // mantem o endereco anterior se a nova busca nao trouxer nada, evitando piscar para "pendente"
+          setAddressLookup((prev) => ({
             key: coordinateKey,
-            endereco: response.endereco ?? null,
-            enderecoExibicao: response.endereco_exibicao ?? null,
-          })
+            endereco: response.endereco ?? prev.endereco,
+            enderecoExibicao: response.endereco_exibicao ?? prev.enderecoExibicao,
+          }))
         }
       })
       .catch(() => {
         if (active) {
-          setAddressLookup({ key: coordinateKey, endereco: null, enderecoExibicao: null })
+          setAddressLookup((prev) => ({ ...prev, key: coordinateKey }))
         }
       })
 
