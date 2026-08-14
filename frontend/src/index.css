@@ -2434,7 +2434,8 @@ textarea:focus {
     max-height: 92vh;
     border-radius: 16px 16px 0 0;
     border-bottom: 0;
-    padding: 18px 18px calc(18px + env(safe-area-inset-bottom, 0px));
+    /* +64px para nao ficar atras da bottom-nav fixa (mesma folga de .app-shell-with-nav) */
+    padding: 18px 18px calc(18px + 64px + env(safe-area-inset-bottom, 0px));
     animation: sheet-up 0.18s ease-out;
   }
 
