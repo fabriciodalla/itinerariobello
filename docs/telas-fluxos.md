@@ -93,11 +93,14 @@ Registrar solicitação pública de novo usuário para análise do administrador
 - Superior informado.
 - Placa, modelo e marca do veículo.
 - Observação opcional.
+- Campo de anexo da CNH do motorista (opcional, PDF ou imagem).
+- Campo de anexo da apólice de seguro do veículo (opcional, PDF ou imagem).
 - Botão de enviar solicitação.
 
 ### Critérios De Aceite
 
 - Bloqueia envio sem dados obrigatórios.
+- Não bloqueia envio sem CNH ou sem apólice de seguro — ambos são opcionais (RN-028 a RN-030).
 - Cria solicitação com status `pendente`.
 - Não cria usuário ativo automaticamente.
 - Permite voltar ao login.
@@ -284,7 +287,7 @@ Para administradores, a tela também permite consultar o relatório mensal por v
 ### Critérios De Aceite
 
 - Responsável autorizado vê apenas fechamentos de motoristas subordinados.
-- Analista vê dados consolidados conforme permissão.
+- Administrador vê dados consolidados de toda a base.
 - Tela não oferece ação de aprovação individual por viagem.
 - Tela não oferece botões de aprovar ou reprovar fechamento mensal.
 - Fechamento mensal `fechado` registra responsável, data/hora, status e observação quando informada.
@@ -328,12 +331,16 @@ Permitir que administrador gerencie usuários, veículos e redefinição de senh
 - Busca por usuário, e-mail, placa, modelo ou unidade.
 - Ação de redefinir senha de usuário.
 - Botões de olho nos campos de nova senha e confirmação.
+- No editar usuário: campo para enviar ou substituir a CNH do motorista, com indicação de arquivo já anexado e link de download.
+- No editar veículo: campo para enviar ou substituir a apólice de seguro, com indicação de arquivo já anexado e link de download.
 
 ### Critérios De Aceite
 
 - Disponível somente para administrador.
 - Redefinição de senha exige mínimo de caracteres definido pelo backend.
 - Bloqueia envio quando nova senha e confirmação não conferem.
+- Envio de CNH e de apólice de seguro é opcional; ausência de qualquer um dos dois não bloqueia edição de usuário ou veículo (RN-028 a RN-030).
+- Novo envio substitui o arquivo anterior.
 
 ## 13. Fluxo Principal Da Viagem
 

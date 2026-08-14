@@ -62,10 +62,16 @@ Recuperação de senha:
 |---|---|---|---|
 | `POST` | `/signup-requests` | Criar solicitação pública de cadastro | Não |
 | `GET` | `/signup-requests` | Listar solicitações | Admin |
+| `GET` | `/signup-requests/{id}/cnh` | Baixar CNH anexada à solicitação | Admin |
+| `GET` | `/signup-requests/{id}/apolice` | Baixar apólice anexada à solicitação | Admin |
 | `POST` | `/signup-requests/{id}/approve` | Aprovar solicitação e criar usuário/veículo | Admin |
 | `POST` | `/signup-requests/{id}/reject` | Reprovar solicitação | Admin |
 
-Criação pública:
+Criação pública (`multipart/form-data`, conforme RN-028 a RN-030):
+
+- campo `payload` (texto) com o JSON abaixo;
+- campo `cnh_arquivo` (arquivo, opcional) — PDF, JPEG, PNG ou WEBP, até 10 MB;
+- campo `apolice_arquivo` (arquivo, opcional) — PDF, JPEG, PNG ou WEBP, até 10 MB.
 
 ```json
 {
@@ -80,7 +86,7 @@ Criação pública:
 }
 ```
 
-A resposta retorna status `pendente`. O usuário ainda não consegue fazer login.
+A resposta retorna status `pendente`. O usuário ainda não consegue fazer login. Nenhum dos dois anexos é obrigatório para enviar a solicitação.
 
 Aprovação:
 
@@ -97,6 +103,8 @@ Aprovação:
 
 `tipo_disponibilidade` é opcional. Quando omitido, veículos `proprio` ou `alugado` viram `fixo`; veículo `empresa` vira `alocado`.
 
+Quando a solicitação aprovada tinha CNH e/ou apólice anexadas, a aprovação copia esses arquivos para o usuário e o veículo criados (ver `docs/modelo-dados.md`, seção 11).
+
 Reprovação:
 
 ```json
@@ -109,11 +117,16 @@ Reprovação:
 
 | Método | Endpoint | Finalidade | Perfil mínimo |
 |---|---|---|---|
-| `GET` | `/users` | Listar usuários | Admin |
+| `GET` | `/users` | Listar usuários (todos os campos) | Admin |
+| `GET` | `/users/equipe` | Listar usuários da própria cadeia (id, nome, cargo) — admin vê todos; responsável vê subordinados diretos e indiretos mais si mesmo. Usado para dar contexto de hierarquia em seletores | Admin ou responsável autorizado |
 | `POST` | `/users` | Criar usuário | Admin |
 | `GET` | `/users/{id}` | Detalhar usuário | Admin |
 | `PATCH` | `/users/{id}` | Atualizar usuário | Admin |
 | `PATCH` | `/users/{id}/status` | Ativar ou inativar usuário | Admin |
+| `POST` | `/users/{id}/cnh` | Enviar ou substituir a CNH do usuário (`multipart/form-data`, campo `arquivo`) | Admin |
+| `GET` | `/users/{id}/cnh` | Baixar a CNH do usuário | Admin |
+
+A CNH é opcional (RN-028 a RN-030): sua ausência não bloqueia nenhuma ação sobre o usuário.
 
 ## 6. Veículos
 
@@ -125,6 +138,10 @@ Reprovação:
 | `GET` | `/vehicles/{id}` | Detalhar veículo | Motorista |
 | `PATCH` | `/vehicles/{id}` | Atualizar veículo | Admin |
 | `PATCH` | `/vehicles/{id}/status` | Ativar ou inativar veículo | Admin |
+| `POST` | `/vehicles/{id}/apolice` | Enviar ou substituir a apólice de seguro do veículo (`multipart/form-data`, campo `arquivo`) | Admin |
+| `GET` | `/vehicles/{id}/apolice` | Baixar a apólice de seguro do veículo | Admin |
+
+A apólice de seguro é opcional (RN-028 a RN-030): sua ausência não bloqueia cadastro, seleção nem partida do veículo.
 
 Na listagem para partida, a API deve retornar apenas veículos permitidos para o usuário autenticado:
 
@@ -183,9 +200,9 @@ Campos principais de veículo:
 | `POST` | `/trips/{id}/submit` | Enviar ou reenviar viagem completa para o fechamento mensal | Motorista |
 | `GET` | `/trips/{id}/gps` | Listar coordenadas GPS da viagem | Motorista |
 
-Partida, chegada e reenvio são ações operacionais exclusivas de usuários com perfil `motorista`. Administrador, analista e responsável pelo fechamento fora do perfil `motorista` recebem `403` nesses endpoints; administradores e analistas continuam podendo consultar a base pelos relatórios conforme permissão.
+Partida, chegada e reenvio são ações operacionais exclusivas de usuários com perfil `motorista`. Administrador e responsável pelo fechamento fora do perfil `motorista` recebem `403` nesses endpoints; administradores continuam podendo consultar a base pelos relatórios conforme permissão.
 
-`GET /trips` deve retornar, para usuários sem permissão de fechamento, somente viagens próprias. Usuários com poder de fechamento podem receber também viagens de subordinados conforme permissão, e administradores/analistas podem consultar a base conforme perfil.
+`GET /trips` deve retornar, para usuários sem permissão de fechamento, somente viagens próprias. Usuários com poder de fechamento podem receber também viagens de subordinados conforme permissão, e administradores podem consultar a base inteira independente da hierarquia.
 
 Cada item de `GET /trips` e `GET /trips/{id}` deve trazer dados suficientes para o histórico mobile e para a chegada de uma viagem em andamento:
 
@@ -286,13 +303,13 @@ Resposta:
 
 | Método | Endpoint | Finalidade | Perfil mínimo |
 |---|---|---|---|
-| `GET` | `/reports/monthly` | Consultar viagens do relatório mensal | Analista ou responsável autorizado |
-| `GET` | `/reports/monthly/export` | Exportar relatório mensal em PDF | Analista ou responsável autorizado |
-| `GET` | `/reports/monthly/closures` | Listar fechamentos mensais por motorista no período | Analista ou responsável autorizado |
-| `GET` | `/reports/monthly/closures/{motorista_id}` | Detalhar fechamento mensal de um motorista | Analista ou responsável autorizado |
+| `GET` | `/reports/monthly` | Consultar viagens do relatório mensal | Administrador ou responsável autorizado |
+| `GET` | `/reports/monthly/export` | Exportar relatório mensal em PDF | Administrador ou responsável autorizado |
+| `GET` | `/reports/monthly/closures` | Listar fechamentos mensais por motorista no período | Administrador ou responsável autorizado |
+| `GET` | `/reports/monthly/closures/{motorista_id}` | Detalhar fechamento mensal de um motorista | Administrador ou responsável autorizado |
 | `POST` | `/reports/monthly/closures/{motorista_id}/close` | Fechar consolidado mensal do motorista | Superior com permissão de fechamento |
 
-Responsável pelo fechamento é o usuário com `pode_aprovar = true`, normalmente coordenador ou cargo acima. Para fechar o consolidado mensal, deve ser superior imediato do motorista, exceto regra administrativa explícita. Supervisor não recebe permissão automaticamente pelo cargo.
+Responsável pelo fechamento é o usuário com `pode_aprovar = true`, normalmente coordenador ou cargo acima. Para consultar (`/reports/monthly`, `/reports/monthly/export`, `/reports/monthly/closures*`), a permissão alcança toda a cadeia de subordinados, diretos e indiretos — um gerente vê, por exemplo, coordenador regional e coordenador local abaixo dele, mesmo sem ser superior imediato de todos (RN-031). Para fechar o consolidado mensal (`/reports/monthly/closures/{motorista_id}/close`), continua exigindo ser superior imediato do motorista, exceto regra administrativa explícita (RN-020, RN-032). Supervisor não recebe permissão automaticamente pelo cargo.
 
 Endpoints legados de decisão do fechamento mensal, como `/reports/monthly/closures/{motorista_id}/approve` e `/reports/monthly/closures/{motorista_id}/reject`, não devem ser consumidos pelo app e retornam `410 Gone`.
 

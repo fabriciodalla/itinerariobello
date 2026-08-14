@@ -7,9 +7,9 @@ Leia antes de qualquer implementação. Para regras de comportamento da IA, cons
 
 ## O que estamos construindo
 
-PWA mobile-first que substitui planilhas manuais de controle de quilometragem da Bello Alimentos. Motoristas registram viagens com foto do hodômetro e GPS. Superiores fecham consolidado mensal aberto/fechado. Analistas exportam relatórios.
+PWA mobile-first que substitui planilhas manuais de controle de quilometragem da Bello Alimentos. Motoristas registram viagens com foto do hodômetro e GPS. Superiores fecham consolidado mensal aberto/fechado. Administradores exportam relatórios.
 
-Perfis: **motorista** · **supervisor** (pode_aprovar) · **analista** · **admin**
+Perfis: **motorista** · **supervisor** (pode_aprovar) · **admin**
 
 ---
 
@@ -137,7 +137,7 @@ Estas regras nunca podem ser flexibilizadas sem aprovação explícita do usuár
 | 4 | Veículo em uso no dia não pode ser reutilizado | Bloqueio na partida (409) |
 | 5 | Viagem não pode ser editada após fechamento mensal fechado | 409 |
 | 6 | Fechamento mensal fechado registra responsável e data/hora | Auditoria incompleta |
-| 7 | Responsável vê apenas fechamentos dos próprios subordinados | 403 para acesso cruzado |
+| 7 | Responsável vê fechamentos de toda a cadeia de subordinados (diretos e indiretos); fechar o mês exige ser superior imediato | 403 para acesso fora da cadeia hierárquica |
 | 8 | `endereco` GPS é nullable — geocodificação pode falhar | Nunca validar como truthy |
 | 9 | Toda rota exige token JWT válido | 401 sem token, 403 sem permissão |
 
@@ -188,7 +188,7 @@ Definir em `.env` (copiar de `.env.example`):
 | `COOKIE_DOMAIN` | Domínio do cookie (omitir usa o host atual) | não |
 
 Para testes, definir também:
-`TEST_MOTORISTA_EMAIL` · `TEST_MOTORISTA_PASSWORD` · `TEST_APROVADOR_EMAIL` · `TEST_APROVADOR_PASSWORD` · `TEST_ANALISTA_EMAIL` · `TEST_ANALISTA_PASSWORD` · `TEST_VEICULO_ID`
+`TEST_MOTORISTA_EMAIL` · `TEST_MOTORISTA_PASSWORD` · `TEST_APROVADOR_EMAIL` · `TEST_APROVADOR_PASSWORD` · `TEST_VEICULO_ID`
 
 ---
 

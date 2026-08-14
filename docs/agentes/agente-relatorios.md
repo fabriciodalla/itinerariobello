@@ -33,7 +33,7 @@ Acionar sempre que houver:
 - Contratos de API de relatorio.
 - Campos exportados.
 - Testes de relatorio e resultado do `pytest`.
-- Regras de permissao para analista e responsavel autorizado pelo fechamento.
+- Regras de permissao para administrador e responsavel autorizado pelo fechamento.
 - Arquivos de documentacao alterados e documentos relacionados.
 
 ## Criterios De Veredito
@@ -46,7 +46,7 @@ Responder `VALIDADO` somente se todos os criterios abaixo forem satisfeitos:
 - filtros obrigatorios `ano` e `mes` foram respeitados;
 - `km_rodado` esta coerente com `km_final - km_inicial`;
 - dados de foto, GPS, rota, status e fechamento permanecem rastreaveis;
-- responsavel autorizado e analista visualizam somente dados permitidos;
+- responsavel autorizado e administrador visualizam somente dados permitidos;
 - exportacao gera arquivo estruturado e coerente com a consulta;
 - testes cobrem consulta, exportacao, permissao e dados obrigatorios.
 

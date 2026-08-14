@@ -181,8 +181,6 @@ $env:TEST_MOTORISTA_EMAIL="motorista.teste@bello.local"
 $env:TEST_MOTORISTA_PASSWORD="pelego@23"
 $env:TEST_APROVADOR_EMAIL="aprovador.teste@bello.local"
 $env:TEST_APROVADOR_PASSWORD="senha-de-teste"
-$env:TEST_ANALISTA_EMAIL="analista.teste@bello.local"
-$env:TEST_ANALISTA_PASSWORD="senha-de-teste"
 $env:TEST_VEICULO_ID="uuid-do-veiculo-de-teste"
 ```
 

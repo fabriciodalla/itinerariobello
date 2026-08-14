@@ -28,15 +28,21 @@ O modelo deve garantir rastreabilidade da viagem, vínculo com usuário e veícu
 | `nome` | Texto | Sim | Nome do usuário |
 | `email` | Texto | Sim | Deve ser único |
 | `senha_hash` | Texto | Sim | Nunca salvar senha em texto puro |
-| `perfil` | Enum | Sim | `motorista`, `supervisor`, `analista`, `admin` |
+| `perfil` | Enum | Sim | `motorista`, `supervisor`, `admin` |
 | `cargo` | Texto | Não | Cargo vindo da planilha de usuários |
 | `superior_id` | UUID | Não | Superior imediato responsável por acompanhar e fechar relatórios quando tiver permissão |
 | `pode_aprovar` | Booleano | Sim | Flag técnica que concede permissão de fechamento mensal para coordenador e cargos acima |
 | `ativo` | Booleano | Sim | Permite bloquear acesso |
+| `cnh_arquivo_path` | Texto | Não | Caminho local do arquivo da CNH no protótipo; nulo quando não enviada |
+| `cnh_arquivo_mime_type` | Texto | Não | Tipo MIME da CNH (`application/pdf`, `image/jpeg`, `image/png` ou `image/webp`) |
+| `cnh_arquivo_tamanho_bytes` | Inteiro | Não | Tamanho do arquivo da CNH em bytes, até 10 MB |
+| `cnh_arquivo_atualizado_em` | Data/hora | Não | Data/hora do último envio ou substituição da CNH |
 | `criado_em` | Data/hora | Sim | Auditoria |
 | `atualizado_em` | Data/hora | Sim | Auditoria |
 
-Observação: usuários importados da planilha operacional com perfil `motorista` devem poder registrar viagens. Administradores, analistas e responsáveis pelo fechamento fora do perfil `motorista` não executam o fluxo operacional de viagem. O cargo não substitui o perfil operacional. Supervisores não recebem permissão de fechamento automaticamente; essa permissão fica restrita a coordenador e níveis superiores.
+Observação: usuários importados da planilha operacional com perfil `motorista` devem poder registrar viagens. Administradores e responsáveis pelo fechamento fora do perfil `motorista` não executam o fluxo operacional de viagem. O cargo não substitui o perfil operacional. Supervisores não recebem permissão de fechamento automaticamente; essa permissão fica restrita a coordenador e níveis superiores.
+
+A CNH é um anexo opcional (ver `docs/regras-negocio.md`, RN-028 a RN-030): nunca deve ser validada como truthy obrigatória em nenhum fluxo, e sua ausência não bloqueia solicitação de cadastro, aprovação ou operação de viagem.
 
 ## 4. Veiculo
 
@@ -52,8 +58,14 @@ Observação: usuários importados da planilha operacional com perfil `motorista
 | `unidade` | Texto | Não | Unidade operacional da planilha |
 | `categoria` | Texto | Não | Categoria ou classificação operacional |
 | `ativo` | Booleano | Sim | Controla disponibilidade |
+| `apolice_arquivo_path` | Texto | Não | Caminho local do arquivo da apólice de seguro no protótipo; nulo quando não enviada |
+| `apolice_arquivo_mime_type` | Texto | Não | Tipo MIME da apólice (`application/pdf`, `image/jpeg`, `image/png` ou `image/webp`) |
+| `apolice_arquivo_tamanho_bytes` | Inteiro | Não | Tamanho do arquivo da apólice em bytes, até 10 MB |
+| `apolice_arquivo_atualizado_em` | Data/hora | Não | Data/hora do último envio ou substituição da apólice |
 | `criado_em` | Data/hora | Sim | Auditoria |
 | `atualizado_em` | Data/hora | Sim | Auditoria |
+
+A apólice de seguro é um anexo opcional (ver `docs/regras-negocio.md`, RN-028 a RN-030): sua ausência não bloqueia cadastro, aprovação de solicitação ou seleção do veículo para partida.
 
 Padronização de nomenclatura:
 
@@ -181,6 +193,12 @@ Regras técnicas:
 | `veiculo_modelo` | Texto | Sim | Modelo do veículo informado, salvo em caixa alta e sem marca como prefixo |
 | `veiculo_marca` | Texto | Sim | Marca do veículo informado, salva em caixa alta |
 | `observacao` | Texto | Não | Informação complementar do solicitante |
+| `cnh_arquivo_path` | Texto | Não | Caminho local da CNH anexada no formulário público, quando enviada |
+| `cnh_arquivo_mime_type` | Texto | Não | Tipo MIME da CNH anexada |
+| `cnh_arquivo_tamanho_bytes` | Inteiro | Não | Tamanho do arquivo da CNH anexada, em bytes |
+| `apolice_arquivo_path` | Texto | Não | Caminho local da apólice de seguro anexada no formulário público, quando enviada |
+| `apolice_arquivo_mime_type` | Texto | Não | Tipo MIME da apólice anexada |
+| `apolice_arquivo_tamanho_bytes` | Inteiro | Não | Tamanho do arquivo da apólice anexada, em bytes |
 | `status` | Enum | Sim | `pendente`, `aprovada` ou `rejeitada` |
 | `usuario_id` | UUID | Não | Usuário criado quando aprovado |
 | `veiculo_id` | UUID | Não | Veículo criado ou vinculado quando aprovado |
@@ -196,6 +214,7 @@ Regras técnicas:
 - Aprovação exige administrador autenticado.
 - Ao aprovar, o administrador define senha temporária, perfil, superior técnico e permissão de fechamento.
 - Se o veículo não existir, ele é criado; se existir como fixo de outro usuário, a aprovação é bloqueada.
+- Quando a solicitação tiver CNH e/ou apólice anexadas, a aprovação copia esses arquivos para o `Usuario` (CNH) e para o `Veiculo` (apólice) criados ou vinculados; se o veículo já existir e já tiver apólice própria, a apólice existente do veículo não é sobrescrita pela da solicitação.
 
 ## 12. Relacionamentos
 
@@ -219,6 +238,7 @@ Viagem 1:N LocalizacaoGPS
 - Usar campos `criado_em` e `atualizado_em` nas tabelas principais.
 - Nunca salvar senha em texto puro.
 - Guardar fotos localmente no protótipo e manter caminho no banco.
+- Guardar CNH e apólice de seguro localmente no protótipo (mesmo volume de fotos, em subpasta `documentos/`) e manter caminho no banco; ambos os anexos são opcionais e nunca bloqueiam fluxo algum quando ausentes.
 - Guardar endereço do GPS como dado complementar e aproximado, sem substituir latitude e longitude; incluir número somente quando retornado pelo provedor; texto como `"Endereco nao resolvido"` deve ser gerado para exibição/exportação, não salvo como endereço real.
 - Calcular `km_rodado` a partir de `km_final - km_inicial`.
 - Validar status da viagem no backend.

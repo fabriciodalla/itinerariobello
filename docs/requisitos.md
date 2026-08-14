@@ -11,8 +11,7 @@ O protótipo deve funcionar em servidor acessível pela internet para testes rea
 | Perfil | Permissões |
 |---|---|
 | Motorista/Coordenador operacional | Fazer login, selecionar veículo, registrar partida, registrar chegada, editar viagem antes do fechamento fechado e visualizar próprias viagens |
-| Responsável pelo fechamento | Visualizar viagens e fechamentos mensais de motoristas subordinados, fechar o consolidado mensal individual e consultar relatórios da equipe. Deve ser coordenador ou cargo acima |
-| Analista | Consultar dados consolidados, gerar relatórios mensais e exportar informações |
+| Responsável pelo fechamento | Visualizar viagens e fechamentos mensais de toda a cadeia de subordinados, diretos e indiretos (ex.: gerente vê coordenador regional e coordenador local abaixo dele), consultar relatórios da equipe, e fechar o consolidado mensal individual apenas dos motoristas dos quais é superior imediato. Deve ser coordenador ou cargo acima |
 | Administrador | Cadastrar usuários, veículos, vínculos, perfis, permissões, analisar solicitações de cadastro e consultar relatório mensal por motorista ou por veículo, sem executar o fluxo operacional de viagem |
 
 O fluxo operacional de viagem, incluindo seleção de veículo, partida, chegada e histórico próprio, é exclusivo de usuários com perfil técnico `motorista`. Administradores não registram viagens; acessam cadastros, usuários e consultas/relatórios conforme permissão.
@@ -43,6 +42,7 @@ Todos os usuários importados da planilha operacional com perfil `motorista` dev
 | RF-018 | O sistema não deve usar aprovação individual de viagem | App não deve consumir `/trips/{id}/approve`; controle mensal ocorre no fechamento aberto/fechado |
 | RF-019 | O usuário externo deve solicitar cadastro pelo login | Solicitação pública registra dados pessoais, cargo, superior e veículo; somente administrador aprova ou reprova antes de criar usuário ativo |
 | RF-020 | O usuário deve visualizar veículos em rota na tela inicial | Tela inicial autenticada lista viagens em andamento com veículo, status em rota, motorista responsável e horário de partida |
+| RF-021 | O sistema deve permitir anexar a CNH do motorista e a apólice de seguro do veículo | Solicitação pública de cadastro aceita CNH e apólice como anexos opcionais; administrador pode enviar ou substituir CNH de qualquer usuário na tela de usuários e apólice de qualquer veículo na tela de veículos, sem bloquear nenhum fluxo quando ausentes |
 
 ## 4. Requisitos Não Funcionais
 
@@ -66,7 +66,7 @@ Todos os usuários importados da planilha operacional com perfil `motorista` dev
 - App impede registros sem GPS obrigatório.
 - Backend entrega dados prontos para relatório mensal, incluindo coordenadas GPS e endereço quando disponível.
 - Responsável autorizado consegue fechar fechamento mensal por motorista individual.
-- Analista consegue consultar dados consolidados por período.
+- Administrador consegue consultar dados consolidados por período.
 
 ## 6. Roadmap Inicial
 

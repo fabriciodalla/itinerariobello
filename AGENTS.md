@@ -174,8 +174,7 @@ Aprovação individual por viagem e decisão aprovar/reprovar de fechamento fora
 |---|---|---|
 | Motorista | `perfil=motorista` | Registrar viagens próprias |
 | Responsável pelo fechamento | `perfil=supervisor`, `pode_aprovar=True` | Fechar mensalmente consolidado de subordinados |
-| Analista | `perfil=analista` | Consultar e exportar relatórios |
-| Administrador | `perfil=admin` | Cadastrar usuários, veículos e permissões |
+| Administrador | `perfil=admin` | Cadastrar usuários, veículos, permissões e consultar/exportar relatórios |
 
 Hierarquia: `usuarios.superior_id` define de quem cada responsável pelo fechamento cuida.
 
