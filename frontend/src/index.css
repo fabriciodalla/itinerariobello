@@ -718,6 +718,10 @@ form,
   min-width: 0;
 }
 
+.screen-offstage {
+  display: none;
+}
+
 label {
   display: grid;
   gap: 7px;
@@ -1086,6 +1090,10 @@ textarea:focus {
 }
 
 .alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   padding: 12px 14px;
   border: 1px solid var(--primary-border);
   border-left: 5px solid var(--primary);
@@ -1093,6 +1101,81 @@ textarea:focus {
   color: var(--primary-strong);
   background: var(--primary-soft);
   font-weight: 800;
+}
+
+.alert span {
+  flex: 1;
+}
+
+.alert-close {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  opacity: 0.7;
+}
+
+.alert-close:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.alert-close svg {
+  width: 16px;
+  height: 16px;
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+
+.toggle-row .checkbox-row {
+  min-height: auto;
+}
+
+.form-section-title {
+  margin: 10px 0 -6px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.form-section-title:first-of-type {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.screen-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  border: 0;
+  background: transparent;
+  color: var(--primary);
+  font-weight: 800;
+  font-size: 0.85rem;
+  padding: 0;
+}
+
+.screen-back-link svg {
+  width: 16px;
+  height: 16px;
 }
 
 .login-links {
@@ -1789,8 +1872,7 @@ textarea:focus {
 .status-em_rota,
 .status-aberto,
 .status-pendente,
-.status-consulta,
-.status-analista {
+.status-consulta {
   color: var(--info);
   background: var(--info-soft);
 }
@@ -1912,6 +1994,8 @@ textarea:focus {
 
 .modal-panel {
   width: min(100%, 430px);
+  max-height: min(88vh, 640px);
+  overflow-y: auto;
   padding: 24px;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -1926,6 +2010,75 @@ textarea:focus {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.modal-section-title {
+  margin: 4px 0 -8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.modal-section-title:first-of-type {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.action-sheet-list {
+  display: grid;
+  gap: 6px;
+}
+
+.action-sheet-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 50px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-align: left;
+}
+
+.action-sheet-item svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: var(--primary);
+}
+
+.action-sheet-item:hover {
+  border-color: var(--primary-border);
+  background: var(--primary-soft);
+}
+
+.action-sheet-item.danger {
+  color: var(--danger);
+}
+
+.action-sheet-item.danger svg {
+  color: var(--danger);
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 .success-box {
@@ -2257,6 +2410,9 @@ textarea:focus {
   display: grid;
   gap: 2px;
   margin-top: 2px;
+  margin-left: 13px;
+  padding-left: 13px;
+  border-left: 2px solid var(--border);
 }
 
 @media (max-width: 640px) {
@@ -2266,6 +2422,20 @@ textarea:focus {
 
   .topbar-card {
     margin-inline: -12px;
+  }
+
+  .modal-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .modal-panel {
+    width: 100%;
+    max-height: 92vh;
+    border-radius: 16px 16px 0 0;
+    border-bottom: 0;
+    padding: 18px 18px calc(18px + env(safe-area-inset-bottom, 0px));
+    animation: sheet-up 0.18s ease-out;
   }
 
   .panel-edge {

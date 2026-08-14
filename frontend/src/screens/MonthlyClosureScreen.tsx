@@ -1,5 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Calendar, CarFront, Check, Download, Edit2, Eye, FileText, Loader2, MapPin, ShieldCheck, UserRound, X } from 'lucide-react'
+import {
+  Calendar,
+  CarFront,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Download,
+  Edit2,
+  Eye,
+  FileText,
+  Loader2,
+  MapPin,
+  ShieldCheck,
+  UserRound,
+  X,
+} from 'lucide-react'
 import { StatusPill } from '../components/StatusPill'
 import { ApiError, api } from '../services/api'
 import type { GpsEvidence, MonthlyClosure, ReportItem, User, Vehicle } from '../types/domain'
@@ -25,6 +40,9 @@ export function MonthlyClosureScreen({ token, user, onMessage }: MonthlyClosureS
   const [reports, setReports] = useState<ReportItem[]>([])
   const [closures, setClosures] = useState<MonthlyClosure[]>([])
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
+  const [allUsers, setAllUsers] = useState<User[]>([])
+  const [cargoById, setCargoById] = useState<Map<string, string | null>>(new Map())
+  const [showOnlyInactive, setShowOnlyInactive] = useState(false)
   const [reportMode, setReportMode] = useState<ReportMode>('motorista')
   const [selectedMotoristaId, setSelectedMotoristaId] = useState('')
   const [selectedVehicleId, setSelectedVehicleId] = useState('')
@@ -34,18 +52,35 @@ export function MonthlyClosureScreen({ token, user, onMessage }: MonthlyClosureS
   const [editState, setEditState] = useState<TripEditState | null>(null)
 
   const [ano, mes] = month.split('-').map(Number)
-  const canReview = user.pode_aprovar || user.perfil === 'analista' || user.perfil === 'admin'
+  const canReview = user.pode_aprovar || user.perfil === 'admin'
   const canEditTrips = user.pode_aprovar || user.perfil === 'admin'
   const canReportByVehicle = user.perfil === 'admin'
   const isVehicleMode = reportMode === 'veiculo'
+
+  const usersById = useMemo(() => {
+    const map = new Map<string, User>()
+    for (const u of allUsers) map.set(u.id, u)
+    return map
+  }, [allUsers])
 
   const motoristas = useMemo(() => {
     const byId = new Map<string, string>()
     for (const item of reports) {
       byId.set(item.usuario_id, item.usuario_nome)
     }
-    return Array.from(byId, ([id, nome]) => ({ id, nome }))
-  }, [reports])
+    const list = Array.from(byId, ([id, nome]) => ({ id, nome }))
+    if (!usersById.size) return list
+    return list.filter((m) => {
+      const u = usersById.get(m.id)
+      if (!u) return true
+      return showOnlyInactive ? !u.ativo : u.ativo
+    })
+  }, [reports, usersById, showOnlyInactive])
+
+  const visibleVehicles = useMemo(
+    () => (showOnlyInactive ? vehicles.filter((v) => !v.ativo) : vehicles.filter((v) => v.ativo)),
+    [vehicles, showOnlyInactive],
+  )
 
   const selectedVehicle = vehicles.find((vehicle) => vehicle.id === selectedVehicleId) ?? null
 
@@ -89,7 +124,37 @@ export function MonthlyClosureScreen({ token, user, onMessage }: MonthlyClosureS
       .catch((error) => {
         onMessage(error instanceof ApiError ? error.message : 'Nao foi possivel carregar os veiculos.')
       })
+    api
+      .users(token)
+      .then(setAllUsers)
+      .catch(() => {})
   }, [canReportByVehicle, onMessage, token])
+
+  useEffect(() => {
+    if (!canReview) {
+      return
+    }
+    api
+      .teamMembers(token)
+      .then((members) => {
+        const map = new Map<string, string | null>()
+        for (const member of members) map.set(member.id, member.cargo)
+        setCargoById(map)
+      })
+      .catch(() => {})
+  }, [canReview, token])
+
+  useEffect(() => {
+    if (selectedMotoristaId && !motoristas.some((m) => m.id === selectedMotoristaId)) {
+      setSelectedMotoristaId('')
+    }
+  }, [motoristas, selectedMotoristaId])
+
+  useEffect(() => {
+    if (selectedVehicleId && !visibleVehicles.some((v) => v.id === selectedVehicleId)) {
+      setSelectedVehicleId('')
+    }
+  }, [visibleVehicles, selectedVehicleId])
 
   useEffect(() => {
     if (!canReview) {
@@ -215,6 +280,20 @@ export function MonthlyClosureScreen({ token, user, onMessage }: MonthlyClosureS
           </button>
         </div>
       ) : null}
+      {canReportByVehicle ? (
+        <div className="toggle-row">
+          <label className="checkbox-row">
+            <input
+              type="checkbox"
+              checked={showOnlyInactive}
+              onChange={(e) => setShowOnlyInactive(e.target.checked)}
+            />
+            <span>Mostrar somente inativos</span>
+          </label>
+        </div>
+      ) : null}
+
+      <div className="modal-section-title">Filtros</div>
       <div className="filter-row">
         <label>
           <span>Mes</span>
@@ -225,7 +304,7 @@ export function MonthlyClosureScreen({ token, user, onMessage }: MonthlyClosureS
             <span>Veiculo</span>
             <select value={selectedVehicleId} onChange={(event) => setSelectedVehicleId(event.target.value)}>
               <option value="">Selecione</option>
-              {vehicles.map((vehicle) => (
+              {visibleVehicles.map((vehicle) => (
                 <option key={vehicle.id} value={vehicle.id}>
                   {vehicle.placa} | {vehicle.modelo}{vehicle.ativo ? '' : ' | Inativo'}
                 </option>
@@ -237,16 +316,20 @@ export function MonthlyClosureScreen({ token, user, onMessage }: MonthlyClosureS
             <span>Motorista</span>
             <select value={selectedMotoristaId} onChange={(event) => setSelectedMotoristaId(event.target.value)}>
               <option value="">Todos</option>
-              {motoristas.map((motorista) => (
-                <option key={motorista.id} value={motorista.id}>
-                  {motorista.nome}
-                </option>
-              ))}
+              {motoristas.map((motorista) => {
+                const cargo = cargoById.get(motorista.id)
+                return (
+                  <option key={motorista.id} value={motorista.id}>
+                    {cargo ? `${motorista.nome} — ${cargo}` : motorista.nome}
+                  </option>
+                )
+              })}
             </select>
           </label>
         )}
       </div>
 
+      <div className="modal-section-title">Resumo</div>
       <div className="closure-summary">
         <div>
           <span>Total viagens</span>
@@ -280,111 +363,22 @@ export function MonthlyClosureScreen({ token, user, onMessage }: MonthlyClosureS
         </button>
       </div>
 
+      <div className="modal-section-title">Viagens</div>
       <div className="item-list">
         {visibleReports.map((item) => (
-          <article className="list-card" key={item.id}>
-            <div className="list-card-main">
-              <div>
-                <strong>
-                  {isVehicleMode ? item.usuario_nome : `${item.veiculo_placa} | ${item.veiculo_modelo}`}
-                </strong>
-                <span>{isVehicleMode ? `${item.veiculo_placa} | ${item.veiculo_modelo}` : item.usuario_nome}</span>
-              </div>
-              <div className="list-card-actions">
-                <StatusPill status={item.status} />
-                {canEditTrips && item.status === 'concluida' && item.status_fechamento !== 'fechado' && editingTripId !== item.id ? (
-                  <button
-                    type="button"
-                    className="icon-button"
-                    title="Editar viagem"
-                    onClick={() => startEdit(item)}
-                  >
-                    <Edit2 size={15} />
-                  </button>
-                ) : null}
-              </div>
-            </div>
-
-            {editingTripId === item.id && editState ? (
-              <div className="trip-edit-form">
-                <div className="trip-edit-fields">
-                  <label>
-                    <span>Km inicial</span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={editState.kmInicial}
-                      onChange={(e) => setEditState((prev) => prev && { ...prev, kmInicial: e.target.value })}
-                    />
-                  </label>
-                  <label>
-                    <span>Km final</span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={editState.kmFinal}
-                      onChange={(e) => setEditState((prev) => prev && { ...prev, kmFinal: e.target.value })}
-                    />
-                  </label>
-                  <label className="trip-edit-rota">
-                    <span>Rota utilizada</span>
-                    <input
-                      type="text"
-                      value={editState.rotaUtilizada}
-                      onChange={(e) => setEditState((prev) => prev && { ...prev, rotaUtilizada: e.target.value })}
-                    />
-                  </label>
-                </div>
-                <div className="action-row">
-                  <button
-                    type="button"
-                    className="primary-button compact"
-                    onClick={() => void saveEdit(item.id)}
-                    disabled={editState.saving}
-                  >
-                    {editState.saving ? <Loader2 className="spin" size={15} /> : <Check size={15} />}
-                    <span>Salvar</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="secondary-button compact"
-                    onClick={cancelEdit}
-                    disabled={editState.saving}
-                  >
-                    <X size={15} />
-                    <span>Cancelar</span>
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="metric-row">
-                <span>{formatDateTime(item.partida_em)}</span>
-                <span>{formatKm(item.km_rodado ?? 0)}</span>
-                <span>{item.rota_utilizada || 'Rota pendente'}</span>
-              </div>
-            )}
-
-            <div className="evidence-row">
-              {item.foto_hodometro_inicial ? (
-                <button type="button" onClick={() => void openPhoto(item.foto_hodometro_inicial!.download_url)}>
-                  <Eye />
-                  Inicial
-                </button>
-              ) : null}
-              {item.foto_hodometro_final ? (
-                <button type="button" onClick={() => void openPhoto(item.foto_hodometro_final!.download_url)}>
-                  <Eye />
-                  Final
-                </button>
-              ) : null}
-            </div>
-            <div className="location-list">
-              <LocationEvidence label="Partida" gps={item.gps_partida} />
-              <LocationEvidence label="Chegada" gps={item.gps_chegada} />
-            </div>
-          </article>
+          <TripReportCard
+            key={item.id}
+            item={item}
+            isVehicleMode={isVehicleMode}
+            canEditTrips={canEditTrips}
+            isEditing={editingTripId === item.id}
+            editState={editingTripId === item.id ? editState : null}
+            onStartEdit={() => startEdit(item)}
+            onCancelEdit={cancelEdit}
+            onSaveEdit={() => void saveEdit(item.id)}
+            onEditStateChange={setEditState}
+            onOpenPhoto={(url) => void openPhoto(url)}
+          />
         ))}
       </div>
       {!visibleReports.length ? (
@@ -393,6 +387,158 @@ export function MonthlyClosureScreen({ token, user, onMessage }: MonthlyClosureS
         </div>
       ) : null}
     </section>
+  )
+}
+
+function TripReportCard({
+  item,
+  isVehicleMode,
+  canEditTrips,
+  isEditing,
+  editState,
+  onStartEdit,
+  onCancelEdit,
+  onSaveEdit,
+  onEditStateChange,
+  onOpenPhoto,
+}: {
+  item: ReportItem
+  isVehicleMode: boolean
+  canEditTrips: boolean
+  isEditing: boolean
+  editState: TripEditState | null
+  onStartEdit: () => void
+  onCancelEdit: () => void
+  onSaveEdit: () => void
+  onEditStateChange: (updater: (prev: TripEditState | null) => TripEditState | null) => void
+  onOpenPhoto: (downloadUrl: string) => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+
+  useEffect(() => {
+    if (isEditing) setExpanded(true)
+  }, [isEditing])
+
+  const canEditThis = canEditTrips && item.status === 'concluida' && item.status_fechamento !== 'fechado' && !isEditing
+
+  return (
+    <article className="list-card">
+      <div className="list-card-main">
+        <div className="hierarchy-card-left">
+          <button
+            className="hierarchy-toggle"
+            type="button"
+            onClick={() => setExpanded((value) => !value)}
+            aria-label={expanded ? 'Recolher viagem' : 'Expandir viagem'}
+          >
+            {expanded ? <ChevronDown /> : <ChevronRight />}
+          </button>
+          <div>
+            <strong>
+              {isVehicleMode ? item.usuario_nome : `${item.veiculo_placa} | ${item.veiculo_modelo}`}
+            </strong>
+            <span>{isVehicleMode ? `${item.veiculo_placa} | ${item.veiculo_modelo}` : item.usuario_nome}</span>
+          </div>
+        </div>
+        <div className="list-card-actions">
+          <StatusPill status={item.status} />
+          {canEditThis ? (
+            <button type="button" className="icon-button" title="Editar viagem" onClick={onStartEdit}>
+              <Edit2 size={15} />
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      {!expanded ? (
+        <div className="metric-row">
+          <span>{formatDateTime(item.partida_em)}</span>
+          <span>{formatKm(item.km_rodado ?? 0)}</span>
+        </div>
+      ) : (
+        <>
+          {isEditing && editState ? (
+            <div className="trip-edit-form">
+              <div className="trip-edit-fields">
+                <label>
+                  <span>Km inicial</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editState.kmInicial}
+                    onChange={(e) => onEditStateChange((prev) => prev && { ...prev, kmInicial: e.target.value })}
+                  />
+                </label>
+                <label>
+                  <span>Km final</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editState.kmFinal}
+                    onChange={(e) => onEditStateChange((prev) => prev && { ...prev, kmFinal: e.target.value })}
+                  />
+                </label>
+                <label className="trip-edit-rota">
+                  <span>Rota utilizada</span>
+                  <input
+                    type="text"
+                    value={editState.rotaUtilizada}
+                    onChange={(e) => onEditStateChange((prev) => prev && { ...prev, rotaUtilizada: e.target.value })}
+                  />
+                </label>
+              </div>
+              <div className="action-row">
+                <button
+                  type="button"
+                  className="primary-button compact"
+                  onClick={onSaveEdit}
+                  disabled={editState.saving}
+                >
+                  {editState.saving ? <Loader2 className="spin" size={15} /> : <Check size={15} />}
+                  <span>Salvar</span>
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button compact"
+                  onClick={onCancelEdit}
+                  disabled={editState.saving}
+                >
+                  <X size={15} />
+                  <span>Cancelar</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="metric-row">
+              <span>{formatDateTime(item.partida_em)}</span>
+              <span>{formatKm(item.km_rodado ?? 0)}</span>
+              <span>{item.rota_utilizada || 'Rota pendente'}</span>
+            </div>
+          )}
+
+          <div className="evidence-row">
+            {item.foto_hodometro_inicial ? (
+              <button type="button" onClick={() => onOpenPhoto(item.foto_hodometro_inicial!.download_url)}>
+                <Eye />
+                Inicial
+              </button>
+            ) : null}
+            {item.foto_hodometro_final ? (
+              <button type="button" onClick={() => onOpenPhoto(item.foto_hodometro_final!.download_url)}>
+                <Eye />
+                Final
+              </button>
+            ) : null}
+          </div>
+          <div className="location-list">
+            <LocationEvidence label="Partida" gps={item.gps_partida} />
+            <LocationEvidence label="Chegada" gps={item.gps_chegada} />
+          </div>
+        </>
+      )}
+    </article>
   )
 }
 

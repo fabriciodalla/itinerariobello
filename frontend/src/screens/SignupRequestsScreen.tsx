@@ -164,7 +164,6 @@ export function SignupRequestsScreen({ token, onMessage }: SignupRequestsScreenP
                     >
                       <option value="motorista">Motorista</option>
                       <option value="supervisor">Supervisor</option>
-                      <option value="analista">Analista</option>
                       <option value="admin">Admin</option>
                     </select>
                   </label>

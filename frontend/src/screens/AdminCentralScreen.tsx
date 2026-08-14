@@ -4,18 +4,24 @@ import {
   ChevronDown,
   ChevronRight,
   Edit3,
+  FileText,
   Filter,
   KeyRound,
   Loader2,
+  MoreVertical,
   Save,
   Search,
+  Upload,
+  UserPlus,
   X,
 } from 'lucide-react'
 import { PasswordInput } from '../components/PasswordInput'
 import { StatusPill } from '../components/StatusPill'
 import { ApiError, api } from '../services/api'
 import type { User, Vehicle, VehicleInRoute } from '../types/domain'
+import { CARGO_OPTIONS } from '../utils/cargos'
 import { SignupRequestsScreen } from './SignupRequestsScreen'
+import { RegisterDriverScreen } from './RegisterDriverScreen'
 import { MonthlyClosureScreen } from './MonthlyClosureScreen'
 
 export type AdminTab = 'usuarios' | 'cadastros' | 'em_rota' | 'fechamento'
@@ -62,33 +68,47 @@ const dateTimeFormatter = new Intl.DateTimeFormat('pt-BR', {
 export function AdminCentralScreen({ token, user, vehiclesInRoute, tab, onMessage }: AdminCentralScreenProps) {
   const [users, setUsers] = useState<User[]>([])
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
+  const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
   const [vehicleTab, setVehicleTab] = useState(false)
   const [filterCargo, setFilterCargo] = useState('')
   const [filterUsuarioId, setFilterUsuarioId] = useState('')
   const [filterVeiculoId, setFilterVeiculoId] = useState('')
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [showInactive, setShowInactive] = useState(false)
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null)
+  const [actionsTarget, setActionsTarget] = useState<
+    { type: 'user'; user: User } | { type: 'vehicle'; vehicle: Vehicle } | null
+  >(null)
   const [saving, setSaving] = useState(false)
+  const [cadastroView, setCadastroView] = useState<'pendentes' | 'novo'>('pendentes')
 
   const [novaSenha, setNovaSenha] = useState('')
   const [confirmacao, setConfirmacao] = useState('')
+  const [editCargo, setEditCargo] = useState('')
   const [editSuperiorId, setEditSuperiorId] = useState('')
   const [editPerfil, setEditPerfil] = useState('')
+  const [editPodeAprovar, setEditPodeAprovar] = useState(false)
   const [editAtivo, setEditAtivo] = useState(true)
+  const [cnhArquivo, setCnhArquivo] = useState<File | null>(null)
 
   const [editVeiculoResponsavel, setEditVeiculoResponsavel] = useState('')
   const [editVeiculoDisponibilidade, setEditVeiculoDisponibilidade] = useState('')
   const [editVeiculoUnidade, setEditVeiculoUnidade] = useState('')
   const [editVeiculoAtivo, setEditVeiculoAtivo] = useState(true)
+  const [apoliceArquivo, setApoliceArquivo] = useState<File | null>(null)
+  const [uploadingDoc, setUploadingDoc] = useState(false)
 
   const load = useCallback(async () => {
+    setLoading(true)
     try {
       const [u, v] = await Promise.all([api.users(token), api.allVehicles(token)])
       setUsers(u)
       setVehicles(v)
     } catch (error) {
       onMessage(error instanceof ApiError ? error.message : 'Nao foi possivel carregar os dados.')
+    } finally {
+      setLoading(false)
     }
   }, [onMessage, token])
 
@@ -140,6 +160,9 @@ export function AdminCentralScreen({ token, user, vehiclesInRoute, tab, onMessag
   }, [filterUsuarioId, filterVeiculoId, veiculosByUsuario])
 
   function applyUserFilters(list: User[]): User[] {
+    if (!showInactive) {
+      list = list.filter((u) => u.ativo)
+    }
     if (filterUsuarioId) {
       list = list.filter((u) => u.id === filterUsuarioId)
     } else if (filterCargo) {
@@ -161,28 +184,38 @@ export function AdminCentralScreen({ token, user, vehiclesInRoute, tab, onMessag
   }
 
   const filteredHierarchy = useMemo(() => {
-    if (filterCargo || filterUsuarioId || filterVeiculoId || search.trim()) {
+    if (!showInactive || filterCargo || filterUsuarioId || filterVeiculoId || search.trim()) {
       const validIds = new Set(applyUserFilters(users).map((u) => u.id))
       return pruneHierarchy(hierarchy, validIds)
     }
     return hierarchy
-  }, [hierarchy, filterCargo, filterUsuarioId, filterVeiculoId, users, vehicles, search, usuariosByCargo])
+  }, [hierarchy, filterCargo, filterUsuarioId, filterVeiculoId, users, vehicles, search, usuariosByCargo, showInactive])
 
   const filteredVehicles = useMemo(() => {
-    if (!search.trim()) return vehicles
+    let list = vehicles
+    if (!showInactive) {
+      list = list.filter((v) => v.ativo)
+    }
+    if (!search.trim()) return list
     const term = search.toLowerCase()
-    return vehicles.filter(
+    return list.filter(
       (v) =>
         v.placa.toLowerCase().includes(term) ||
         v.modelo.toLowerCase().includes(term) ||
         (v.unidade ?? '').toLowerCase().includes(term),
     )
-  }, [vehicles, search])
+  }, [vehicles, search, showInactive])
 
   function closeModal() {
     setEditTarget(null)
     setNovaSenha('')
     setConfirmacao('')
+    setCnhArquivo(null)
+    setApoliceArquivo(null)
+  }
+
+  function closeActions() {
+    setActionsTarget(null)
   }
 
   function openReset(u: User) {
@@ -192,9 +225,12 @@ export function AdminCentralScreen({ token, user, vehiclesInRoute, tab, onMessag
   }
 
   function openEditUser(u: User) {
+    setEditCargo(u.cargo ?? '')
     setEditSuperiorId(u.superior_id ?? '')
     setEditPerfil(u.perfil)
+    setEditPodeAprovar(u.pode_aprovar)
     setEditAtivo(u.ativo)
+    setCnhArquivo(null)
     setEditTarget({ type: 'user', user: u })
   }
 
@@ -203,7 +239,53 @@ export function AdminCentralScreen({ token, user, vehiclesInRoute, tab, onMessag
     setEditVeiculoDisponibilidade(vehicle.tipo_disponibilidade)
     setEditVeiculoUnidade(vehicle.unidade ?? '')
     setEditVeiculoAtivo(vehicle.ativo)
+    setApoliceArquivo(null)
     setEditTarget({ type: 'vehicle', vehicle })
+  }
+
+  async function openDocument(downloadUrl: string | null) {
+    if (!downloadUrl) {
+      onMessage('Nenhum arquivo anexado ainda.')
+      return
+    }
+    try {
+      const blob = await api.photo(token, downloadUrl)
+      window.open(URL.createObjectURL(blob), '_blank', 'noopener,noreferrer')
+    } catch (error) {
+      onMessage(error instanceof ApiError ? error.message : 'Nao foi possivel abrir o arquivo.')
+    }
+  }
+
+  async function handleUploadCnh() {
+    if (!editTarget || editTarget.type !== 'user' || !cnhArquivo) return
+    setUploadingDoc(true)
+    try {
+      const atualizado = await api.uploadUserCnh(token, editTarget.user.id, cnhArquivo)
+      setEditTarget({ type: 'user', user: atualizado })
+      setCnhArquivo(null)
+      onMessage(`CNH de ${atualizado.nome} enviada.`)
+      await load()
+    } catch (error) {
+      onMessage(error instanceof ApiError ? error.message : 'Erro ao enviar CNH.')
+    } finally {
+      setUploadingDoc(false)
+    }
+  }
+
+  async function handleUploadApolice() {
+    if (!editTarget || editTarget.type !== 'vehicle' || !apoliceArquivo) return
+    setUploadingDoc(true)
+    try {
+      const atualizado = await api.uploadVehicleApolice(token, editTarget.vehicle.id, apoliceArquivo)
+      setEditTarget({ type: 'vehicle', vehicle: atualizado })
+      setApoliceArquivo(null)
+      onMessage(`Apolice de ${atualizado.placa} enviada.`)
+      await load()
+    } catch (error) {
+      onMessage(error instanceof ApiError ? error.message : 'Erro ao enviar apolice.')
+    } finally {
+      setUploadingDoc(false)
+    }
   }
 
   async function handleReset() {
@@ -225,8 +307,10 @@ export function AdminCentralScreen({ token, user, vehiclesInRoute, tab, onMessag
     setSaving(true)
     try {
       await api.patchUser(token, editTarget.user.id, {
+        cargo: editCargo.trim() || null,
         superior_id: editSuperiorId || null,
         perfil: editPerfil,
+        pode_aprovar: editPodeAprovar,
         ativo: editAtivo,
       })
       onMessage(`${editTarget.user.nome} atualizado.`)
@@ -255,11 +339,6 @@ export function AdminCentralScreen({ token, user, vehiclesInRoute, tab, onMessag
     } finally { setSaving(false) }
   }
 
-  function userName(id: string | null) {
-    if (!id) return '—'
-    return users.find((u) => u.id === id)?.nome ?? '—'
-  }
-
   useEffect(() => {
     setSearch('')
   }, [tab])
@@ -285,6 +364,17 @@ export function AdminCentralScreen({ token, user, vehiclesInRoute, tab, onMessag
               <CarFront />
               <span>Veiculos</span>
             </button>
+          </div>
+
+          <div className="toggle-row">
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={showInactive}
+                onChange={(e) => setShowInactive(e.target.checked)}
+              />
+              <span>Mostrar inativos</span>
+            </label>
           </div>
 
           {!vehicleTab ? (
@@ -380,44 +470,121 @@ export function AdminCentralScreen({ token, user, vehiclesInRoute, tab, onMessag
 
           {!vehicleTab ? (
             <div className="hierarchy-tree">
-              {filteredHierarchy.map((node) => (
-                <HierarchyNodeView
-                  key={node.user.id}
-                  node={node}
-                  level={0}
-                  users={users}
-                  onEditUser={openEditUser}
-                  onResetPassword={openReset}
-                  userName={userName}
-                />
-              ))}
-              {!filteredHierarchy.length ? (
-                <div className="empty-state">Nenhum usuario encontrado.</div>
-              ) : null}
+              {loading && !users.length ? (
+                <div className="empty-state"><Loader2 className="spin" /> Carregando...</div>
+              ) : (
+                <>
+                  {filteredHierarchy.map((node) => (
+                    <HierarchyNodeView
+                      key={node.user.id}
+                      node={node}
+                      level={0}
+                      users={users}
+                      onOpenActions={(u) => setActionsTarget({ type: 'user', user: u })}
+                    />
+                  ))}
+                  {!filteredHierarchy.length ? (
+                    <div className="empty-state">Nenhum usuario encontrado.</div>
+                  ) : null}
+                </>
+              )}
             </div>
           ) : null}
 
           {vehicleTab ? (
             <>
-              <div className="user-list">
-                {filteredVehicles.map((v) => (
-                  <div className="user-row" key={v.id}>
-                    <div className="user-row-info">
-                      <strong>{v.placa} | {v.modelo}</strong>
-                      <span className="user-row-email">
-                        {v.responsavel_nome ?? '—'} | {v.unidade ?? '—'} | {v.ativo ? 'Ativo' : 'Inativo'}
-                      </span>
-                    </div>
-                    <div className="user-row-actions">
-                      <button className="user-row-btn" type="button" onClick={() => openEditVehicle(v)} aria-label="Editar veiculo">
-                        <Edit3 />
-                      </button>
-                    </div>
+              {loading && !vehicles.length ? (
+                <div className="empty-state"><Loader2 className="spin" /> Carregando...</div>
+              ) : (
+                <>
+                  <div className="user-list">
+                    {filteredVehicles.map((v) => (
+                      <div className="user-row" key={v.id}>
+                        <div className="user-row-info">
+                          <strong>{v.placa} | {v.modelo}</strong>
+                          <span className="user-row-email">
+                            {v.responsavel_nome ?? '—'} | {v.unidade ?? '—'} | {v.ativo ? 'Ativo' : 'Inativo'}
+                          </span>
+                        </div>
+                        <div className="user-row-actions">
+                          <button
+                            className="user-row-btn"
+                            type="button"
+                            onClick={() => setActionsTarget({ type: 'vehicle', vehicle: v })}
+                            aria-label="Mais opcoes"
+                          >
+                            <MoreVertical />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-              {!filteredVehicles.length ? <div className="empty-state">Nenhum resultado encontrado.</div> : null}
+                  {!filteredVehicles.length ? <div className="empty-state">Nenhum resultado encontrado.</div> : null}
+                </>
+              )}
             </>
+          ) : null}
+
+          {/* Folha de acoes (usuario ou veiculo) */}
+          {actionsTarget ? (
+            <div className="modal-overlay" onClick={closeActions}>
+              <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
+                <div className="modal-header">
+                  <h3>
+                    {actionsTarget.type === 'user'
+                      ? actionsTarget.user.nome
+                      : `${actionsTarget.vehicle.placa} | ${actionsTarget.vehicle.modelo}`}
+                  </h3>
+                  <button className="icon-button" type="button" onClick={closeActions} aria-label="Fechar">
+                    <X />
+                  </button>
+                </div>
+                <div className="action-sheet-list">
+                  {actionsTarget.type === 'user' ? (
+                    <>
+                      <button
+                        className="action-sheet-item"
+                        type="button"
+                        onClick={() => { openEditUser(actionsTarget.user); closeActions() }}
+                      >
+                        <Edit3 /> <span>Editar usuario</span>
+                      </button>
+                      <button
+                        className="action-sheet-item"
+                        type="button"
+                        onClick={() => { openReset(actionsTarget.user); closeActions() }}
+                      >
+                        <KeyRound /> <span>Redefinir senha</span>
+                      </button>
+                      <button
+                        className="action-sheet-item"
+                        type="button"
+                        onClick={() => { void openDocument(actionsTarget.user.cnh_download_url); closeActions() }}
+                      >
+                        <FileText /> <span>Ver CNH</span>
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        className="action-sheet-item"
+                        type="button"
+                        onClick={() => { openEditVehicle(actionsTarget.vehicle); closeActions() }}
+                      >
+                        <Edit3 /> <span>Editar veiculo</span>
+                      </button>
+                      <button
+                        className="action-sheet-item"
+                        type="button"
+                        onClick={() => { void openDocument(actionsTarget.vehicle.apolice_download_url); closeActions() }}
+                      >
+                        <FileText /> <span>Ver apolice</span>
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
           ) : null}
 
           {/* Modals */}
@@ -463,11 +630,19 @@ export function AdminCentralScreen({ token, user, vehiclesInRoute, tab, onMessag
                 <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
                   {editTarget.user.nome}
                 </p>
+                <div className="modal-section-title">Dados</div>
+                <label><span>Cargo</span>
+                  <select value={editCargo} onChange={(e) => setEditCargo(e.target.value)}>
+                    <option value="">Sem cargo</option>
+                    {CARGO_OPTIONS.map((cargo) => (
+                      <option key={cargo} value={cargo}>{cargo}</option>
+                    ))}
+                  </select>
+                </label>
                 <label><span>Perfil</span>
                   <select value={editPerfil} onChange={(e) => setEditPerfil(e.target.value)}>
                     <option value="motorista">Motorista</option>
                     <option value="supervisor">Supervisor</option>
-                    <option value="analista">Analista</option>
                     <option value="admin">Admin</option>
                   </select>
                 </label>
@@ -480,12 +655,50 @@ export function AdminCentralScreen({ token, user, vehiclesInRoute, tab, onMessag
                   </select>
                 </label>
                 <label className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={editPodeAprovar}
+                    onChange={(e) => setEditPodeAprovar(e.target.checked)}
+                  />
+                  <span>Pode fechar mensalmente (ve e fecha fechamento dos subordinados)</span>
+                </label>
+                <label className="checkbox-row">
                   <input type="checkbox" checked={editAtivo} onChange={(e) => setEditAtivo(e.target.checked)} />
                   <span>Ativo</span>
                 </label>
                 <div className="action-row">
                   <button className="primary-button compact" type="button" onClick={() => void handleSaveUser()} disabled={saving}>
                     {saving ? <Loader2 className="spin" /> : <Save />} <span>Salvar</span>
+                  </button>
+                </div>
+
+                <div className="modal-section-title">Documentos</div>
+                <label><span>CNH do motorista</span>
+                  <input
+                    type="file"
+                    accept="application/pdf,image/jpeg,image/png,image/webp"
+                    onChange={(e) => setCnhArquivo(e.target.files?.[0] ?? null)}
+                  />
+                </label>
+                <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                  {editTarget.user.cnh_download_url ? 'CNH ja anexada.' : 'Nenhuma CNH anexada ainda.'}
+                </p>
+                <div className="action-row">
+                  <button
+                    className="secondary-button compact"
+                    type="button"
+                    onClick={() => void openDocument(editTarget.user.cnh_download_url)}
+                  >
+                    <FileText /> <span>Ver CNH</span>
+                  </button>
+                  <button
+                    className="primary-button compact"
+                    type="button"
+                    onClick={() => void handleUploadCnh()}
+                    disabled={uploadingDoc || !cnhArquivo}
+                  >
+                    {uploadingDoc ? <Loader2 className="spin" /> : <Upload />}
+                    <span>{editTarget.user.cnh_download_url ? 'Substituir CNH' : 'Enviar CNH'}</span>
                   </button>
                 </div>
               </div>
@@ -502,6 +715,7 @@ export function AdminCentralScreen({ token, user, vehiclesInRoute, tab, onMessag
                 <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
                   {editTarget.vehicle.placa} | {editTarget.vehicle.modelo}
                 </p>
+                <div className="modal-section-title">Dados</div>
                 <label><span>Responsavel</span>
                   <select value={editVeiculoResponsavel} onChange={(e) => setEditVeiculoResponsavel(e.target.value)}>
                     <option value="">Sem responsavel</option>
@@ -528,13 +742,76 @@ export function AdminCentralScreen({ token, user, vehiclesInRoute, tab, onMessag
                     {saving ? <Loader2 className="spin" /> : <Save />} <span>Salvar</span>
                   </button>
                 </div>
+
+                <div className="modal-section-title">Documentos</div>
+                <label><span>Apolice de seguro</span>
+                  <input
+                    type="file"
+                    accept="application/pdf,image/jpeg,image/png,image/webp"
+                    onChange={(e) => setApoliceArquivo(e.target.files?.[0] ?? null)}
+                  />
+                </label>
+                <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                  {editTarget.vehicle.apolice_download_url ? 'Apolice ja anexada.' : 'Nenhuma apolice anexada ainda.'}
+                </p>
+                <div className="action-row">
+                  <button
+                    className="secondary-button compact"
+                    type="button"
+                    onClick={() => void openDocument(editTarget.vehicle.apolice_download_url)}
+                  >
+                    <FileText /> <span>Ver apolice</span>
+                  </button>
+                  <button
+                    className="primary-button compact"
+                    type="button"
+                    onClick={() => void handleUploadApolice()}
+                    disabled={uploadingDoc || !apoliceArquivo}
+                  >
+                    {uploadingDoc ? <Loader2 className="spin" /> : <Upload />}
+                    <span>{editTarget.vehicle.apolice_download_url ? 'Substituir apolice' : 'Enviar apolice'}</span>
+                  </button>
+                </div>
               </div>
             </div>
           ) : null}
         </section>
       ) : null}
 
-      {tab === 'cadastros' ? <SignupRequestsScreen token={token} onMessage={onMessage} /> : null}
+      {tab === 'cadastros' ? (
+        <div className="screen-stack">
+          <div className="segmented-control" aria-label="Modo de cadastro">
+            <button
+              type="button"
+              className={cadastroView === 'pendentes' ? 'active' : ''}
+              onClick={() => setCadastroView('pendentes')}
+            >
+              <UserPlus />
+              <span>Solicitacoes</span>
+            </button>
+            <button
+              type="button"
+              className={cadastroView === 'novo' ? 'active' : ''}
+              onClick={() => setCadastroView('novo')}
+            >
+              <UserPlus />
+              <span>Cadastrar direto</span>
+            </button>
+          </div>
+
+          {cadastroView === 'novo' ? (
+            <RegisterDriverScreen
+              token={token}
+              users={users}
+              onMessage={onMessage}
+              onBack={() => setCadastroView('pendentes')}
+              onCreated={() => { setCadastroView('pendentes'); void load() }}
+            />
+          ) : (
+            <SignupRequestsScreen token={token} onMessage={onMessage} />
+          )}
+        </div>
+      ) : null}
 
       {tab === 'em_rota' ? (
         <section className="panel panel-edge-bottom">
@@ -575,16 +852,12 @@ function HierarchyNodeView({
   node,
   level,
   users,
-  onEditUser,
-  onResetPassword,
-  userName,
+  onOpenActions,
 }: {
   node: HierarchyNode
   level: number
   users: User[]
-  onEditUser: (u: User) => void
-  onResetPassword: (u: User) => void
-  userName: (id: string | null) => string
+  onOpenActions: (u: User) => void
 }) {
   const [expanded, setExpanded] = useState(level < 2)
   const hasChildren = node.subordinados.length > 0
@@ -616,12 +889,9 @@ function HierarchyNodeView({
           </div>
         </div>
         <div className="hierarchy-card-right">
-          <StatusPill status={u.perfil} />
-          <button className="user-row-btn" type="button" onClick={() => onEditUser(u)} aria-label="Editar">
-            <Edit3 />
-          </button>
-          <button className="user-row-btn" type="button" onClick={() => onResetPassword(u)} aria-label="Redefinir senha">
-            <KeyRound />
+          {u.perfil === 'supervisor' ? <StatusPill status={u.perfil} /> : null}
+          <button className="user-row-btn" type="button" onClick={() => onOpenActions(u)} aria-label="Mais opcoes">
+            <MoreVertical />
           </button>
         </div>
       </div>
@@ -633,9 +903,7 @@ function HierarchyNodeView({
               node={child}
               level={level + 1}
               users={users}
-              onEditUser={onEditUser}
-              onResetPassword={onResetPassword}
-              userName={userName}
+              onOpenActions={onOpenActions}
             />
           ))}
         </div>

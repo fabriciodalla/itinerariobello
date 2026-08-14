@@ -11,7 +11,10 @@ import type {
   StatusSolicitacaoCadastro,
   Trip,
   User,
+  UserCreatePayload,
+  UserSummary,
   Vehicle,
+  VehicleCreatePayload,
   VehicleInRoute,
 } from '../types/domain'
 
@@ -90,6 +93,18 @@ function multipart(payload: object, foto: File) {
   return form
 }
 
+function signupMultipart(payload: SignupRequestPayload, cnhArquivo?: File | null, apoliceArquivo?: File | null) {
+  const form = new FormData()
+  form.set('payload', JSON.stringify(payload))
+  if (cnhArquivo) {
+    form.set('cnh_arquivo', cnhArquivo)
+  }
+  if (apoliceArquivo) {
+    form.set('apolice_arquivo', apoliceArquivo)
+  }
+  return form
+}
+
 export const api = {
   login(email: string, senha: string) {
     return request<LoginResponse>('/auth/login', {
@@ -122,10 +137,10 @@ export const api = {
       body: JSON.stringify({ token: resetToken, nova_senha: novaSenha }),
     })
   },
-  createSignupRequest(payload: SignupRequestPayload) {
+  createSignupRequest(payload: SignupRequestPayload, cnhArquivo?: File | null, apoliceArquivo?: File | null) {
     return request<SignupRequest>('/signup-requests', {
       method: 'POST',
-      body: JSON.stringify(payload),
+      body: signupMultipart(payload, cnhArquivo, apoliceArquivo),
     })
   },
   signupRequests(token: string, status?: StatusSolicitacaoCadastro) {
@@ -163,6 +178,20 @@ export const api = {
   allVehicles(token: string) {
     return request<Vehicle[]>('/vehicles/all', { token })
   },
+  createUser(token: string, data: UserCreatePayload) {
+    return request<User>('/users', {
+      method: 'POST',
+      token,
+      body: JSON.stringify(data),
+    })
+  },
+  createVehicle(token: string, data: VehicleCreatePayload) {
+    return request<Vehicle>('/vehicles', {
+      method: 'POST',
+      token,
+      body: JSON.stringify(data),
+    })
+  },
   patchUser(token: string, usuarioId: string, data: Record<string, unknown>) {
     return request<User>(`/users/${usuarioId}`, {
       method: 'PATCH',
@@ -177,11 +206,32 @@ export const api = {
       body: JSON.stringify(data),
     })
   },
+  uploadUserCnh(token: string, usuarioId: string, arquivo: File) {
+    const form = new FormData()
+    form.set('arquivo', arquivo)
+    return request<User>(`/users/${usuarioId}/cnh`, {
+      method: 'POST',
+      token,
+      body: form,
+    })
+  },
+  uploadVehicleApolice(token: string, veiculoId: string, arquivo: File) {
+    const form = new FormData()
+    form.set('arquivo', arquivo)
+    return request<Vehicle>(`/vehicles/${veiculoId}/apolice`, {
+      method: 'POST',
+      token,
+      body: form,
+    })
+  },
   me(token: string) {
     return request<User>('/auth/me', { token })
   },
   users(token: string) {
     return request<User[]>('/users', { token })
+  },
+  teamMembers(token: string) {
+    return request<UserSummary[]>('/users/equipe', { token })
   },
   vehicles(token: string) {
     return request<Vehicle[]>('/vehicles', { token })

@@ -1,4 +1,4 @@
-export type PerfilUsuario = 'motorista' | 'supervisor' | 'analista' | 'admin'
+export type PerfilUsuario = 'motorista' | 'supervisor' | 'admin'
 export type StatusViagem = 'em_andamento' | 'concluida'
 export type StatusFechamento = 'aberto' | 'fechado'
 export type StatusSolicitacaoCadastro = 'pendente' | 'aprovada' | 'rejeitada'
@@ -15,6 +15,16 @@ export interface User {
   superior_id: string | null
   pode_aprovar: boolean
   ativo: boolean
+  cnh_arquivo_mime_type: string | null
+  cnh_arquivo_tamanho_bytes: number | null
+  cnh_arquivo_atualizado_em: string | null
+  cnh_download_url: string | null
+}
+
+export interface UserSummary {
+  id: string
+  nome: string
+  cargo: string | null
 }
 
 export interface Vehicle {
@@ -30,6 +40,10 @@ export interface Vehicle {
   responsavel_nome: string | null
   ativo: boolean
   prioritario: boolean
+  apolice_arquivo_mime_type: string | null
+  apolice_arquivo_tamanho_bytes: number | null
+  apolice_arquivo_atualizado_em: string | null
+  apolice_download_url: string | null
 }
 
 export interface VehicleInRoute {
@@ -90,6 +104,29 @@ export interface SignupRequestPayload {
   observacao?: string | null
 }
 
+export interface UserCreatePayload {
+  nome: string
+  email: string
+  senha: string
+  perfil: PerfilUsuario
+  cargo?: string | null
+  superior_id?: string | null
+  pode_aprovar?: boolean
+  ativo?: boolean
+}
+
+export interface VehicleCreatePayload {
+  placa: string
+  modelo: string
+  marca?: string | null
+  tipo: TipoVeiculo
+  tipo_disponibilidade?: TipoDisponibilidadeVeiculo | null
+  usuario_responsavel_id?: string | null
+  unidade?: string | null
+  categoria?: string | null
+  ativo?: boolean
+}
+
 export interface SignupApprovePayload {
   senha_temporaria: string
   perfil: PerfilUsuario
@@ -107,6 +144,12 @@ export interface SignupRequest extends SignupRequestPayload {
   processado_por_id: string | null
   processado_em: string | null
   motivo_recusa: string | null
+  cnh_arquivo_mime_type: string | null
+  cnh_arquivo_tamanho_bytes: number | null
+  cnh_download_url: string | null
+  apolice_arquivo_mime_type: string | null
+  apolice_arquivo_tamanho_bytes: number | null
+  apolice_download_url: string | null
   criado_em: string
   atualizado_em: string
 }

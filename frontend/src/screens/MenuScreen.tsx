@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CircleHelp, Info, KeyRound, LogOut, Settings, SlidersHorizontal, User as UserIcon } from 'lucide-react'
+import { Info, KeyRound, LogOut, Settings, User as UserIcon } from 'lucide-react'
 import { ChangePasswordModal } from '../components/ChangePasswordModal'
 import { InstallPromptButton } from '../components/InstallPromptButton'
 import { StatusPill } from '../components/StatusPill'
@@ -10,12 +10,11 @@ interface MenuScreenProps {
   token: string
   user: User
   onLogout: () => void
-  onMessage: (message: string) => void
 }
 
-const APP_VERSION = '1.0.0'
+const APP_VERSION = '1.1.0'
 
-export function MenuScreen({ token, user, onLogout, onMessage }: MenuScreenProps) {
+export function MenuScreen({ token, user, onLogout }: MenuScreenProps) {
   const [showChangePassword, setShowChangePassword] = useState(false)
 
   return (
@@ -57,21 +56,10 @@ export function MenuScreen({ token, user, onLogout, onMessage }: MenuScreenProps
           <KeyRound />
           <span>Trocar senha</span>
         </button>
-        <button className="menu-row" type="button" onClick={() => onMessage('Preferencias em breve.')}>
-          <SlidersHorizontal />
-          <span>Preferencias</span>
-        </button>
         <div className="menu-row menu-row-static">
           <span>Instalar aplicativo</span>
           <InstallPromptButton />
         </div>
-      </section>
-
-      <section className="panel panel-edge menu-list">
-        <button className="menu-row" type="button" onClick={() => onMessage('Fale com o suporte da Bello Alimentos.')}>
-          <CircleHelp />
-          <span>Ajuda</span>
-        </button>
         <div className="menu-row menu-row-static">
           <Info />
           <span>Versao {APP_VERSION}</span>

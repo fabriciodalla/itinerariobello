@@ -2,6 +2,7 @@ import { CarFront, History, Menu as MenuIcon, PieChart } from 'lucide-react'
 import type { ComponentType } from 'react'
 
 export type DriverTab = 'carro' | 'historico' | 'fechamento' | 'menu'
+export type SupervisorTab = 'fechamento' | 'menu'
 
 export interface BottomNavItem<T extends string> {
   id: T
@@ -41,6 +42,11 @@ export function BottomNav<T extends string>({ items, active, onChange }: BottomN
 export const DRIVER_NAV_ITEMS: Array<BottomNavItem<DriverTab>> = [
   { id: 'carro', label: 'Carro', icon: CarFront },
   { id: 'historico', label: 'Historico', icon: History },
+  { id: 'fechamento', label: 'Fechamento', icon: PieChart },
+  { id: 'menu', label: 'Menu', icon: MenuIcon },
+]
+
+export const SUPERVISOR_NAV_ITEMS: Array<BottomNavItem<SupervisorTab>> = [
   { id: 'fechamento', label: 'Fechamento', icon: PieChart },
   { id: 'menu', label: 'Menu', icon: MenuIcon },
 ]

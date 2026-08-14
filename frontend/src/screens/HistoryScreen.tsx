@@ -28,6 +28,11 @@ export function HistoryScreen({
   const filteredTrips = useMemo(() => {
     return ownTrips.filter((trip) => filter === 'todos' || trip.status === filter)
   }, [filter, ownTrips])
+  const countByFilter = useMemo(() => {
+    const counts: Record<StatusViagem | 'todos', number> = { todos: ownTrips.length, em_andamento: 0, concluida: 0 }
+    for (const trip of ownTrips) counts[trip.status] += 1
+    return counts
+  }, [ownTrips])
 
   useEffect(() => {
     const tripsMissingEvidence = ownTrips.filter(
@@ -97,7 +102,7 @@ export function HistoryScreen({
       <div className="segmented-control">
         {FILTERS.map((item) => (
           <button key={item} className={filter === item ? 'active' : ''} type="button" onClick={() => setFilter(item)}>
-            {item === 'todos' ? 'Todos' : item.replaceAll('_', ' ')}
+            {(item === 'todos' ? 'Todos' : item.replaceAll('_', ' ')) + ` (${countByFilter[item]})`}
           </button>
         ))}
       </div>

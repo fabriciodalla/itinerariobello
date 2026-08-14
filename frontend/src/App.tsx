@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Loader2, Route, ShieldCheck, UserPlus, Users } from 'lucide-react'
+import { Loader2, Route, ShieldCheck, UserPlus, Users, X } from 'lucide-react'
 import { LoginScreen } from './screens/LoginScreen'
 import { DriverCentralScreen } from './screens/DriverCentralScreen'
 import { MonthlyClosureScreen } from './screens/MonthlyClosureScreen'
@@ -8,7 +8,9 @@ import type { AdminTab } from './screens/AdminCentralScreen'
 import { AppHeader } from './components/AppHeader'
 import { StatusChipsRow } from './components/StatusChipsRow'
 import { BottomNav, DRIVER_NAV_ITEMS } from './components/BottomNav'
-import type { BottomNavItem, DriverTab } from './components/BottomNav'
+import type { BottomNavItem, DriverTab, SupervisorTab } from './components/BottomNav'
+import { SUPERVISOR_NAV_ITEMS } from './components/BottomNav'
+import { MenuScreen } from './screens/MenuScreen'
 import { api, ApiError } from './services/api'
 import type { SignupRequestPayload, Trip, User, Vehicle, VehicleInRoute } from './types/domain'
 
@@ -23,6 +25,7 @@ function App() {
   const [pendingCount, setPendingCount] = useState(0)
   const [driverTab, setDriverTab] = useState<DriverTab>('carro')
   const [adminTab, setAdminTab] = useState<AdminTab>('usuarios')
+  const [supervisorTab, setSupervisorTab] = useState<SupervisorTab>('fechamento')
   const [showStatusChips, setShowStatusChips] = useState(false)
 
   const canRegisterTrips = Boolean(user && user.perfil === 'motorista')
@@ -84,6 +87,12 @@ function App() {
     }
   }, [driverTab])
 
+  useEffect(() => {
+    if (!message) return
+    const timeout = window.setTimeout(() => setMessage(''), 6000)
+    return () => window.clearTimeout(timeout)
+  }, [message])
+
   async function handleLogin(email: string, senha: string, lembrarAcesso = true) {
     setLoading(true)
     setMessage('')
@@ -110,9 +119,9 @@ function App() {
     await api.resetPassword(resetToken, novaSenha)
   }
 
-  async function handleSignupRequest(payload: SignupRequestPayload) {
+  async function handleSignupRequest(payload: SignupRequestPayload, cnhArquivo?: File | null, apoliceArquivo?: File | null) {
     setMessage('')
-    await api.createSignupRequest(payload)
+    await api.createSignupRequest(payload, cnhArquivo, apoliceArquivo)
   }
 
   function handleLogout() {
@@ -150,14 +159,21 @@ function App() {
   }
 
   return (
-    <main className={`app-shell ${canRegisterTrips || isAdmin ? 'app-shell-with-nav' : ''}`}>
+    <main className="app-shell app-shell-with-nav">
       <div className="topbar-card">
         <AppHeader token={token} user={user} onLogout={handleLogout} />
       </div>
 
       <StatusChipsRow visible={showStatusChips} />
 
-      {message ? <div className="alert">{message}</div> : null}
+      {message ? (
+        <div className="alert">
+          <span>{message}</span>
+          <button className="alert-close" type="button" onClick={() => setMessage('')} aria-label="Fechar aviso">
+            <X />
+          </button>
+        </div>
+      ) : null}
 
       <section className="content-area">
         {isAdmin ? (
@@ -180,6 +196,8 @@ function App() {
             onLogout={handleLogout}
             onShowStatusChange={setShowStatusChips}
           />
+        ) : supervisorTab === 'menu' ? (
+          <MenuScreen token={token} user={user} onLogout={handleLogout} />
         ) : (
           <MonthlyClosureScreen token={token} user={user} onMessage={setMessage} />
         )}
@@ -187,6 +205,9 @@ function App() {
 
       {canRegisterTrips ? <BottomNav items={DRIVER_NAV_ITEMS} active={driverTab} onChange={setDriverTab} /> : null}
       {isAdmin ? <BottomNav items={adminNavItems} active={adminTab} onChange={setAdminTab} /> : null}
+      {!canRegisterTrips && !isAdmin ? (
+        <BottomNav items={SUPERVISOR_NAV_ITEMS} active={supervisorTab} onChange={setSupervisorTab} />
+      ) : null}
     </main>
   )
 }

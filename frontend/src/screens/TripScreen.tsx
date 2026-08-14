@@ -411,7 +411,7 @@ function InProgressPanel({
       </button>
       <button className="secondary-button full" type="button" onClick={onLogout}>
         <LogOut />
-        <span>Sair do aplicativo</span>
+        <span>Sair da conta</span>
       </button>
     </section>
   )
@@ -500,7 +500,7 @@ function CompletionPanel({ onLogout, onNewTrip }: { onLogout: () => void; onNewT
       <p>A viagem ficou pronta para o fechamento mensal.</p>
       <button className="primary-button full" type="button" onClick={onLogout}>
         <LogOut />
-        <span>Sair do aplicativo</span>
+        <span>Sair da conta</span>
       </button>
       <button className="secondary-button full" type="button" onClick={onNewTrip}>
         <CarFront />

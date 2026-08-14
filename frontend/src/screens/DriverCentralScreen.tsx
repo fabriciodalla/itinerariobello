@@ -30,7 +30,9 @@ export function DriverCentralScreen({
 }: DriverCentralScreenProps) {
   return (
     <div className="screen-stack">
-      {tab === 'carro' ? (
+      {/* Mantido montado mesmo fora da aba ativa: trocar de aba nao pode descartar
+          foto, GPS ou km ja preenchidos no meio de uma partida/chegada. */}
+      <div className={tab === 'carro' ? undefined : 'screen-offstage'}>
         <TripScreen
           token={token}
           user={user}
@@ -41,7 +43,7 @@ export function DriverCentralScreen({
           onLogout={onLogout}
           onShowStatusChange={onShowStatusChange}
         />
-      ) : null}
+      </div>
 
       {tab === 'historico' ? (
         <HistoryScreen token={token} user={user} vehicles={vehicles} trips={trips} onMessage={onMessage} />
@@ -49,7 +51,7 @@ export function DriverCentralScreen({
 
       {tab === 'fechamento' ? <MonthlyClosureScreen token={token} user={user} onMessage={onMessage} /> : null}
 
-      {tab === 'menu' ? <MenuScreen token={token} user={user} onLogout={onLogout} onMessage={onMessage} /> : null}
+      {tab === 'menu' ? <MenuScreen token={token} user={user} onLogout={onLogout} /> : null}
     </div>
   )
 }

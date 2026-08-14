@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { ArrowLeft, AtSign, BarChart3, CheckCircle2, CircleCheck, LockKeyhole, Loader2, LogIn, Mail, MapPin, Send, ShieldCheck, UserPlus, UserRound } from 'lucide-react'
 import { PasswordInput } from '../components/PasswordInput'
 import type { SignupRequestPayload } from '../types/domain'
+import { CARGO_OPTIONS } from '../utils/cargos'
 
 type LoginMode = 'login' | 'forgot' | 'reset' | 'signup'
 
@@ -12,7 +13,7 @@ interface LoginScreenProps {
   onLogin: (email: string, senha: string, lembrarAcesso: boolean) => Promise<void>
   onForgotPassword: (email: string) => Promise<void>
   onResetPassword: (token: string, novaSenha: string) => Promise<void>
-  onSignupRequest: (payload: SignupRequestPayload) => Promise<void>
+  onSignupRequest: (payload: SignupRequestPayload, cnhArquivo?: File | null, apoliceArquivo?: File | null) => Promise<void>
 }
 
 const emptySignup: SignupRequestPayload = {
@@ -43,6 +44,8 @@ export function LoginScreen({
   const [novaSenha, setNovaSenha] = useState('')
   const [confirmacao, setConfirmacao] = useState('')
   const [signup, setSignup] = useState<SignupRequestPayload>(emptySignup)
+  const [cnhArquivo, setCnhArquivo] = useState<File | null>(null)
+  const [apoliceArquivo, setApoliceArquivo] = useState<File | null>(null)
   const [localMessage, setLocalMessage] = useState('')
   const [localLoading, setLocalLoading] = useState(false)
   const [rememberAccess, setRememberAccess] = useState(true)
@@ -154,13 +157,19 @@ export function LoginScreen({
     }
     setLocalLoading(true)
     try {
-      await onSignupRequest({
-        ...signup,
-        email: signup.email.trim(),
-        veiculo_placa: signup.veiculo_placa.trim().toUpperCase(),
-        observacao: signup.observacao?.trim() || null,
-      })
+      await onSignupRequest(
+        {
+          ...signup,
+          email: signup.email.trim(),
+          veiculo_placa: signup.veiculo_placa.trim().toUpperCase(),
+          observacao: signup.observacao?.trim() || null,
+        },
+        cnhArquivo,
+        apoliceArquivo,
+      )
       setSignup(emptySignup)
+      setCnhArquivo(null)
+      setApoliceArquivo(null)
       setLocalMessage('Solicitacao enviada para aprovacao.')
     } catch (error) {
       setLocalMessage(error instanceof Error ? error.message : 'Nao foi possivel enviar a solicitacao.')
@@ -289,8 +298,8 @@ export function LoginScreen({
               </div>
             </div>
             <footer className="login-footer">
-              Bello Alimentos © 2025
-              <span>Versão 1.0.0</span>
+              Bello Alimentos © 2026
+              <span>Versão 1.1.0</span>
             </footer>
           </form>
         ) : null}
@@ -378,7 +387,12 @@ export function LoginScreen({
             </label>
             <label>
               <span>Cargo</span>
-              <input value={signup.cargo} onChange={(event) => updateSignup('cargo', event.target.value)} />
+              <select value={signup.cargo} onChange={(event) => updateSignup('cargo', event.target.value)}>
+                <option value="">Selecione o cargo</option>
+                {CARGO_OPTIONS.map((cargo) => (
+                  <option key={cargo} value={cargo}>{cargo}</option>
+                ))}
+              </select>
             </label>
             <label>
               <span>Superior</span>
@@ -413,6 +427,22 @@ export function LoginScreen({
               <textarea
                 value={signup.observacao ?? ''}
                 onChange={(event) => updateSignup('observacao', event.target.value)}
+              />
+            </label>
+            <label>
+              <span>CNH do motorista (opcional)</span>
+              <input
+                type="file"
+                accept="application/pdf,image/jpeg,image/png,image/webp"
+                onChange={(event) => setCnhArquivo(event.target.files?.[0] ?? null)}
+              />
+            </label>
+            <label>
+              <span>Apolice de seguro do veiculo (opcional)</span>
+              <input
+                type="file"
+                accept="application/pdf,image/jpeg,image/png,image/webp"
+                onChange={(event) => setApoliceArquivo(event.target.files?.[0] ?? null)}
               />
             </label>
             {visibleMessage ? <div className="alert">{visibleMessage}</div> : null}

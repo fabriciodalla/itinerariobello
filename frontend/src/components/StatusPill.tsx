@@ -6,7 +6,6 @@ type KnownStatus =
   | StatusSolicitacaoCadastro
   | 'motorista'
   | 'supervisor'
-  | 'analista'
   | 'admin'
   | 'fechamento'
   | 'disponivel'
@@ -23,7 +22,6 @@ const LABELS: Record<KnownStatus, string> = {
   rejeitada: 'Rejeitada',
   motorista: 'Motorista',
   supervisor: 'Supervisor',
-  analista: 'Analista',
   admin: 'Admin',
   fechamento: 'Fechamento',
   disponivel: 'Disponivel',
