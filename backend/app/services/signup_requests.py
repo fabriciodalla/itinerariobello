@@ -10,7 +10,6 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.security import hash_password
 from app.models.enums import (
-    PerfilUsuario,
     StatusSolicitacaoCadastro,
     TipoDisponibilidadeVeiculo,
     TipoVeiculo,
@@ -24,6 +23,7 @@ from app.schemas.signup_requests import (
     SignupRequestRejectRequest,
 )
 from app.services.documents import apolice_subdir, cnh_subdir, save_document
+from app.services.hierarchy import resolve_pode_aprovar
 from app.services.veiculos import normalizar_marca_veiculo, normalizar_modelo_veiculo
 
 
@@ -110,7 +110,7 @@ def approve_signup_request(
         cargo=solicitacao.cargo,
         perfil=payload.perfil,
         superior_id=payload.superior_id,
-        pode_aprovar=payload.pode_aprovar or payload.perfil == PerfilUsuario.supervisor,
+        pode_aprovar=resolve_pode_aprovar(solicitacao.cargo, payload.perfil, bool(payload.pode_aprovar)),
         ativo=True,
     )
     if solicitacao.cnh_arquivo_path:

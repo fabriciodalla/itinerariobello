@@ -1,4 +1,4 @@
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -129,3 +129,101 @@ def test_motorista_nao_lista_equipe(api_client, motorista_auth_headers):
     response = api_client.get("/users/equipe", headers=motorista_auth_headers)
 
     assert_forbidden(response)
+
+
+@pytest.mark.permissao
+@pytest.mark.risco(peso=100, criticidade="critica", area="permissao", referencias=("RF-016", "RN-031"))
+def test_editar_cargo_de_gestor_garante_pode_aprovar_mesmo_sem_marcar(api_client):
+    """Usuario que tambem dirige (perfil motorista) e recebe um cargo de
+    coordenacao/gerencia precisa ganhar acesso a equipe automaticamente,
+    mesmo que o formulario de edicao nao marque 'pode aprovar' explicitamente
+    (reproduz o cenario real: cargo GERENTE com pode_aprovar preso em False)."""
+    settings = get_settings()
+    db = SessionLocal()
+    created = []
+    try:
+        suffix = uuid4().hex[:6]
+        admin = Usuario(
+            nome="Admin Cargo Teste",
+            email=f"admin.cargo.{suffix}@bello.local",
+            senha_hash="hash",
+            perfil=PerfilUsuario.admin,
+        )
+        gerente_motorista = Usuario(
+            nome="Gerente Que Dirige Teste",
+            email=f"gerente.dirige.{suffix}@bello.local",
+            senha_hash="hash",
+            perfil=PerfilUsuario.motorista,
+            pode_aprovar=False,
+        )
+        db.add_all([admin, gerente_motorista])
+        db.commit()
+        created.extend([admin, gerente_motorista])
+
+        token = create_access_token(str(admin.id), settings.secret_key, settings.access_token_expire_minutes)
+        response = api_client.patch(
+            f"/users/{gerente_motorista.id}",
+            json={"cargo": "GERENTE"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["cargo"] == "GERENTE"
+        assert body["perfil"] == "motorista"
+        assert body["pode_aprovar"] is True
+    finally:
+        db.rollback()
+        for item in reversed(created):
+            persisted = db.get(type(item), item.id)
+            if persisted is not None:
+                db.delete(persisted)
+        db.commit()
+        db.close()
+
+
+@pytest.mark.permissao
+@pytest.mark.risco(peso=50, criticidade="alta", area="permissao", referencias=("RF-016", "RN-031"))
+def test_criar_usuario_com_cargo_de_gestor_garante_pode_aprovar(api_client):
+    """Mesma garantia no cadastro direto (POST /users), nao so na edicao."""
+    settings = get_settings()
+    db = SessionLocal()
+    created_ids = []
+    try:
+        suffix = uuid4().hex[:6]
+        admin = Usuario(
+            nome="Admin Cargo Criacao Teste",
+            email=f"admin.cargo.criacao.{suffix}@bello.local",
+            senha_hash="hash",
+            perfil=PerfilUsuario.admin,
+        )
+        db.add(admin)
+        db.commit()
+        created_ids.append(admin.id)
+
+        token = create_access_token(str(admin.id), settings.secret_key, settings.access_token_expire_minutes)
+        response = api_client.post(
+            "/users",
+            json={
+                "nome": "Coordenador Que Dirige Teste",
+                "email": f"coordenador.dirige.{suffix}@belloalimentos.com.br",
+                "senha": "senha12345",
+                "perfil": "motorista",
+                "cargo": "COORDENADOR REGIONAL",
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 201, response.text
+        body = response.json()
+        assert body["perfil"] == "motorista"
+        assert body["pode_aprovar"] is True
+        created_ids.append(UUID(body["id"]))
+    finally:
+        db.rollback()
+        for user_id in reversed(created_ids):
+            persisted = db.get(Usuario, user_id)
+            if persisted is not None:
+                db.delete(persisted)
+        db.commit()
+        db.close()

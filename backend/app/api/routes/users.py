@@ -24,7 +24,7 @@ from app.schemas.usuarios import (
     UsuarioResumoResponse,
 )
 from app.services.documents import cnh_subdir, delete_document_if_exists, save_document
-from app.services.hierarchy import collect_subordinate_ids
+from app.services.hierarchy import collect_subordinate_ids, resolve_pode_aprovar
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -78,15 +78,15 @@ def create_user(
             detail="Superior nao encontrado.",
         )
 
-    pode_aprovar = payload.pode_aprovar or payload.perfil == PerfilUsuario.supervisor
+    cargo = payload.cargo.strip() if payload.cargo else None
     usuario = Usuario(
         nome=payload.nome.strip(),
         email=email,
         senha_hash=hash_password(payload.senha),
-        cargo=payload.cargo.strip() if payload.cargo else None,
+        cargo=cargo,
         perfil=payload.perfil,
         superior_id=payload.superior_id,
-        pode_aprovar=pode_aprovar,
+        pode_aprovar=resolve_pode_aprovar(cargo, payload.perfil, payload.pode_aprovar),
         ativo=payload.ativo,
     )
     db.add(usuario)
@@ -128,8 +128,6 @@ def patch_user(
 
     if "perfil" in fields and payload.perfil is not None:
         usuario.perfil = payload.perfil
-        if payload.perfil == PerfilUsuario.supervisor:
-            usuario.pode_aprovar = True
 
     if "superior_id" in fields:
         if payload.superior_id is not None:
@@ -150,6 +148,10 @@ def patch_user(
 
     if "ativo" in fields and payload.ativo is not None:
         usuario.ativo = payload.ativo
+
+    # cargo de coordenacao/gerencia ou perfil supervisor sempre garantem pode_aprovar,
+    # mesmo que o formulario nao tenha marcado a caixa explicitamente
+    usuario.pode_aprovar = resolve_pode_aprovar(usuario.cargo, usuario.perfil, usuario.pode_aprovar)
 
     db.commit()
     db.refresh(usuario)

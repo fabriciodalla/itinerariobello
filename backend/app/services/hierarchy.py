@@ -5,7 +5,21 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.models.enums import PerfilUsuario
 from app.models.usuario import Usuario
+
+
+def resolve_pode_aprovar(cargo: str | None, perfil: PerfilUsuario, current: bool) -> bool:
+    """Cargo de coordenacao/gerencia (ex.: GERENTE, COORDENADOR REGIONAL) ou perfil
+    supervisor sempre garantem pode_aprovar=True, independente do que foi marcado
+    explicitamente no formulario. Sem isso, um usuario que tambem dirige (perfil
+    motorista) e so recebe o cargo de gestor fica sem acesso aos relatorios da
+    equipe (RN-007), pois nada mais deriva pode_aprovar a partir do cargo."""
+    if perfil == PerfilUsuario.supervisor:
+        return True
+    if cargo:
+        return True
+    return current
 
 
 def collect_subordinate_ids(db: Session, superior_id: UUID) -> set[UUID]:
