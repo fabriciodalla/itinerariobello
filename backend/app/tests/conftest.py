@@ -398,14 +398,5 @@ def aprovador_auth_headers(api_client) -> dict[str, str]:
 
 
 @pytest.fixture(scope="session")
-def analista_auth_headers(api_client) -> dict[str, str]:
-    return _login(
-        api_client,
-        _required_env("TEST_ANALISTA_EMAIL"),
-        _required_env("TEST_ANALISTA_PASSWORD"),
-    )
-
-
-@pytest.fixture(scope="session")
 def test_vehicle_id() -> str:
     return _required_env("TEST_VEICULO_ID")

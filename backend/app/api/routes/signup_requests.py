@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
+from fastapi.responses import FileResponse
+from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -35,10 +39,51 @@ def _get_or_404(db: Session, solicitacao_id: UUID) -> SolicitacaoCadastro:
 @limiter.limit("3/minute")
 def create_public_signup_request(
     request: Request,
-    payload: SignupRequestCreateRequest,
     db: Annotated[Session, Depends(get_db)],
+    payload: Annotated[str, Form(...)],
+    cnh_arquivo: Annotated[UploadFile | None, File()] = None,
+    apolice_arquivo: Annotated[UploadFile | None, File()] = None,
 ) -> SolicitacaoCadastro:
-    return create_signup_request(db, payload)
+    try:
+        data = SignupRequestCreateRequest.model_validate(json.loads(payload))
+    except json.JSONDecodeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Campo payload deve conter JSON valido."
+        ) from exc
+    except ValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=exc.errors()) from exc
+
+    return create_signup_request(db, data, cnh_upload=cnh_arquivo, apolice_upload=apolice_arquivo)
+
+
+@router.get("/{solicitacao_id}/cnh")
+def download_signup_request_cnh(
+    solicitacao_id: UUID,
+    _: Annotated[Usuario, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    solicitacao = _get_or_404(db, solicitacao_id)
+    if not solicitacao.cnh_arquivo_path:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="CNH nao anexada a solicitacao.")
+    path = Path(solicitacao.cnh_arquivo_path)
+    if not path.exists():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Arquivo da CNH nao encontrado.")
+    return FileResponse(path, media_type=solicitacao.cnh_arquivo_mime_type)
+
+
+@router.get("/{solicitacao_id}/apolice")
+def download_signup_request_apolice(
+    solicitacao_id: UUID,
+    _: Annotated[Usuario, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    solicitacao = _get_or_404(db, solicitacao_id)
+    if not solicitacao.apolice_arquivo_path:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Apolice nao anexada a solicitacao.")
+    path = Path(solicitacao.apolice_arquivo_path)
+    if not path.exists():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Arquivo da apolice nao encontrado.")
+    return FileResponse(path, media_type=solicitacao.apolice_arquivo_mime_type)
 
 
 @router.get("", response_model=list[SignupRequestResponse])

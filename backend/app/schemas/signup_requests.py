@@ -55,5 +55,11 @@ class SignupRequestResponse(BaseModel):
     processado_por_id: UUID | None = None
     processado_em: datetime | None = None
     motivo_recusa: str | None = None
+    cnh_arquivo_mime_type: str | None = None
+    cnh_arquivo_tamanho_bytes: int | None = None
+    cnh_download_url: str | None = None
+    apolice_arquivo_mime_type: str | None = None
+    apolice_arquivo_tamanho_bytes: int | None = None
+    apolice_download_url: str | None = None
     criado_em: datetime
     atualizado_em: datetime

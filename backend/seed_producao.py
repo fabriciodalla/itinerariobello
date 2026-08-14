@@ -61,7 +61,7 @@ USUARIOS: list[UsuarioSeed] = [
         perfil=PerfilUsuario.admin,
         cargo="Administrador do Sistema",
     ),
-    # Adicione supervisores, motoristas e analistas abaixo conforme necessidade.
+    # Adicione supervisores e motoristas abaixo conforme necessidade.
     # Exemplo:
     # UsuarioSeed(
     #     nome="Nome do Supervisor",

@@ -1,19 +1,23 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
+from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_admin
+from app.core.config import get_settings
 from app.db.session import get_db
 from app.models.enums import TipoDisponibilidadeVeiculo, TipoVeiculo
 from app.models.usuario import Usuario
 from app.models.veiculo import Veiculo
 from app.models.viagem import Viagem
 from app.schemas.veiculos import VeiculoCreateRequest, VeiculoEmRotaResponse, VeiculoPatchRequest, VeiculoResponse
+from app.services.documents import apolice_subdir, delete_document_if_exists, save_document
 from app.services.veiculos import (
     listar_veiculos_disponiveis_para_partida,
     listar_veiculos_em_rota,
@@ -22,6 +26,13 @@ from app.services.veiculos import (
 )
 
 router = APIRouter(prefix="/vehicles", tags=["vehicles"])
+
+
+def _get_vehicle_or_404(db: Session, veiculo_id: str) -> Veiculo:
+    veiculo = db.get(Veiculo, veiculo_id)
+    if veiculo is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Veiculo nao encontrado.")
+    return veiculo
 
 
 def _primeiro_nome(nome: str | None) -> str | None:
@@ -45,6 +56,10 @@ def to_response(veiculo: Veiculo, usuario_id) -> VeiculoResponse:
         responsavel_nome=_primeiro_nome(responsavel.nome) if responsavel else None,
         ativo=veiculo.ativo,
         prioritario=veiculo.usuario_responsavel_id == usuario_id,
+        apolice_arquivo_mime_type=veiculo.apolice_arquivo_mime_type,
+        apolice_arquivo_tamanho_bytes=veiculo.apolice_arquivo_tamanho_bytes,
+        apolice_arquivo_atualizado_em=veiculo.apolice_arquivo_atualizado_em,
+        apolice_download_url=veiculo.apolice_download_url,
     )
 
 
@@ -169,3 +184,41 @@ def patch_vehicle(
     db.commit()
     db.refresh(veiculo)
     return to_response(veiculo, None)
+
+
+@router.post("/{veiculo_id}/apolice", response_model=VeiculoResponse)
+def upload_vehicle_apolice(
+    veiculo_id: str,
+    _: Annotated[Usuario, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+    arquivo: UploadFile,
+) -> VeiculoResponse:
+    veiculo = _get_vehicle_or_404(db, veiculo_id)
+    settings = get_settings()
+    arquivo_path, tamanho_bytes, mime_type = save_document(
+        arquivo, settings.photos_dir, apolice_subdir(veiculo.id), "apolice"
+    )
+    arquivo_anterior = veiculo.apolice_arquivo_path
+    veiculo.apolice_arquivo_path = arquivo_path
+    veiculo.apolice_arquivo_mime_type = mime_type
+    veiculo.apolice_arquivo_tamanho_bytes = tamanho_bytes
+    veiculo.apolice_arquivo_atualizado_em = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(veiculo)
+    delete_document_if_exists(arquivo_anterior)
+    return to_response(veiculo, None)
+
+
+@router.get("/{veiculo_id}/apolice")
+def download_vehicle_apolice(
+    veiculo_id: str,
+    _: Annotated[Usuario, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    veiculo = _get_vehicle_or_404(db, veiculo_id)
+    if not veiculo.apolice_arquivo_path:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Apolice nao cadastrada para este veiculo.")
+    path = Path(veiculo.apolice_arquivo_path)
+    if not path.exists():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Arquivo da apolice nao encontrado.")
+    return FileResponse(path, media_type=veiculo.apolice_arquivo_mime_type)

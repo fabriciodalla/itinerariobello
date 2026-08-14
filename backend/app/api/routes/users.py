@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
+from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import require_admin
+from app.api.deps import get_current_user, require_admin
+from app.core.config import get_settings
 from app.core.security import hash_password
 from app.db.session import get_db
 from app.models.enums import PerfilUsuario
@@ -17,7 +21,10 @@ from app.schemas.usuarios import (
     UsuarioCreateRequest,
     UsuarioPatchRequest,
     UsuarioResponse,
+    UsuarioResumoResponse,
 )
+from app.services.documents import cnh_subdir, delete_document_if_exists, save_document
+from app.services.hierarchy import collect_subordinate_ids
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -35,6 +42,24 @@ def list_users(
     db: Annotated[Session, Depends(get_db)],
 ) -> list[Usuario]:
     return list(db.scalars(select(Usuario).order_by(Usuario.nome)).all())
+
+
+@router.get("/equipe", response_model=list[UsuarioResumoResponse])
+def list_team_members(
+    usuario: Annotated[Usuario, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> list[Usuario]:
+    """Lista leve (id, nome, cargo) usada para dar contexto de hierarquia em seletores,
+    ex.: dropdown de motorista no fechamento mensal. Admin ve todos; responsavel pelo
+    fechamento ve a propria cadeia de subordinados (direta e indireta) mais si mesmo."""
+    if usuario.perfil != PerfilUsuario.admin and not usuario.pode_aprovar:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Usuario sem permissao para consultar a equipe.")
+
+    if usuario.perfil == PerfilUsuario.admin:
+        return list(db.scalars(select(Usuario).order_by(Usuario.nome)).all())
+
+    team_ids = collect_subordinate_ids(db, usuario.id) | {usuario.id}
+    return list(db.scalars(select(Usuario).where(Usuario.id.in_(team_ids)).order_by(Usuario.nome)).all())
 
 
 @router.post("", response_model=UsuarioResponse, status_code=status.HTTP_201_CREATED)
@@ -141,3 +166,41 @@ def reset_user_password(
     usuario = _get_or_404(db, usuario_id)
     usuario.senha_hash = hash_password(payload.nova_senha)
     db.commit()
+
+
+@router.post("/{usuario_id}/cnh", response_model=UsuarioResponse)
+def upload_user_cnh(
+    usuario_id: UUID,
+    _: Annotated[Usuario, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+    arquivo: UploadFile,
+) -> Usuario:
+    usuario = _get_or_404(db, usuario_id)
+    settings = get_settings()
+    arquivo_path, tamanho_bytes, mime_type = save_document(
+        arquivo, settings.photos_dir, cnh_subdir(usuario.id), "cnh"
+    )
+    arquivo_anterior = usuario.cnh_arquivo_path
+    usuario.cnh_arquivo_path = arquivo_path
+    usuario.cnh_arquivo_mime_type = mime_type
+    usuario.cnh_arquivo_tamanho_bytes = tamanho_bytes
+    usuario.cnh_arquivo_atualizado_em = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(usuario)
+    delete_document_if_exists(arquivo_anterior)
+    return usuario
+
+
+@router.get("/{usuario_id}/cnh")
+def download_user_cnh(
+    usuario_id: UUID,
+    _: Annotated[Usuario, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    usuario = _get_or_404(db, usuario_id)
+    if not usuario.cnh_arquivo_path:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="CNH nao cadastrada para este usuario.")
+    path = Path(usuario.cnh_arquivo_path)
+    if not path.exists():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Arquivo da CNH nao encontrado.")
+    return FileResponse(path, media_type=usuario.cnh_arquivo_mime_type)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
@@ -32,6 +33,14 @@ class ResetSenhaAdminRequest(BaseModel):
     nova_senha: str = Field(min_length=8, max_length=100)
 
 
+class UsuarioResumoResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    nome: str
+    cargo: str | None = None
+
+
 class UsuarioResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -43,3 +52,7 @@ class UsuarioResponse(BaseModel):
     superior_id: UUID | None = None
     pode_aprovar: bool
     ativo: bool
+    cnh_arquivo_mime_type: str | None = None
+    cnh_arquivo_tamanho_bytes: int | None = None
+    cnh_arquivo_atualizado_em: datetime | None = None
+    cnh_download_url: str | None = None

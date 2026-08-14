@@ -31,6 +31,7 @@ from app.models.localizacao_gps import LocalizacaoGPS
 from app.models.usuario import Usuario
 from app.models.veiculo import Veiculo
 from app.models.viagem import Viagem
+from app.services.hierarchy import collect_subordinate_ids
 from app.schemas.trips import (
     GPSPayload,
     GPSResponse,
@@ -78,16 +79,18 @@ def ensure_trip_owner(viagem: Viagem, usuario: Usuario) -> None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Usuario sem permissao para esta viagem.")
 
 
-def can_view_trip(viagem: Viagem, usuario: Usuario) -> bool:
+def can_view_trip(db: Session, viagem: Viagem, usuario: Usuario) -> bool:
     if viagem.usuario_id == usuario.id:
         return True
-    if usuario.perfil in {PerfilUsuario.admin, PerfilUsuario.analista}:
+    if usuario.perfil == PerfilUsuario.admin:
         return True
-    return bool(usuario.e_aprovador and viagem.usuario and viagem.usuario.superior_id == usuario.id)
+    if not usuario.e_aprovador:
+        return False
+    return viagem.usuario_id in collect_subordinate_ids(db, usuario.id)
 
 
-def ensure_can_view_trip(viagem: Viagem, usuario: Usuario) -> None:
-    if not can_view_trip(viagem, usuario):
+def ensure_can_view_trip(db: Session, viagem: Viagem, usuario: Usuario) -> None:
+    if not can_view_trip(db, viagem, usuario):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Usuario sem permissao para esta viagem.")
 
 
@@ -283,7 +286,7 @@ def list_trips(
     db: Annotated[Session, Depends(get_db)],
 ) -> list[TripResponse]:
     query = select(Viagem).order_by(Viagem.partida_em.desc())
-    if usuario.perfil in {PerfilUsuario.admin, PerfilUsuario.analista}:
+    if usuario.perfil == PerfilUsuario.admin:
         pass
     elif usuario.e_aprovador:
         query = query.join(Usuario, Viagem.usuario_id == Usuario.id).where(
@@ -336,7 +339,7 @@ def get_trip(
     db: Annotated[Session, Depends(get_db)],
 ) -> TripResponse:
     viagem = get_trip_or_404(db, viagem_id)
-    ensure_can_view_trip(viagem, usuario)
+    ensure_can_view_trip(db, viagem, usuario)
     return trip_response(db, viagem)
 
 
@@ -484,7 +487,7 @@ def list_trip_photos(
     db: Annotated[Session, Depends(get_db)],
 ) -> list[ReportPhotoEvidenceResponse]:
     viagem = get_trip_or_404(db, viagem_id)
-    ensure_can_view_trip(viagem, usuario)
+    ensure_can_view_trip(db, viagem, usuario)
     photos = list(
         db.scalars(
             select(FotoHodometro).where(FotoHodometro.viagem_id == viagem.id).order_by(FotoHodometro.criado_em)
@@ -500,7 +503,7 @@ def list_trip_gps(
     db: Annotated[Session, Depends(get_db)],
 ) -> list[LocalizacaoGPS]:
     viagem = get_trip_or_404(db, viagem_id)
-    ensure_can_view_trip(viagem, usuario)
+    ensure_can_view_trip(db, viagem, usuario)
     return list(
         db.scalars(
             select(LocalizacaoGPS).where(LocalizacaoGPS.viagem_id == viagem.id).order_by(LocalizacaoGPS.capturado_em)
@@ -517,7 +520,7 @@ def download_photo(
     foto = db.get(FotoHodometro, foto_id)
     if foto is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Foto nao encontrada.")
-    ensure_can_view_trip(foto.viagem, usuario)
+    ensure_can_view_trip(db, foto.viagem, usuario)
     path = Path(foto.arquivo_path)
     if not path.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Arquivo da foto nao encontrado.")
@@ -544,14 +547,16 @@ def monthly_query(
 
 
 def ensure_report_access(usuario: Usuario) -> None:
-    if usuario.perfil not in {PerfilUsuario.analista, PerfilUsuario.admin} and not usuario.pode_aprovar:
+    if usuario.perfil != PerfilUsuario.admin and not usuario.pode_aprovar:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Usuario sem permissao para relatorios.")
 
 
-def ensure_can_view_monthly_report(motorista: Usuario, usuario: Usuario) -> None:
-    if usuario.perfil in {PerfilUsuario.admin, PerfilUsuario.analista}:
+def ensure_can_view_monthly_report(db: Session, motorista: Usuario, usuario: Usuario) -> None:
+    if usuario.perfil == PerfilUsuario.admin:
         return
-    if usuario.pode_aprovar and motorista.superior_id == usuario.id:
+    if motorista.id == usuario.id:
+        return
+    if usuario.pode_aprovar and motorista.id in collect_subordinate_ids(db, usuario.id):
         return
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Usuario sem permissao para este relatorio mensal.")
 
@@ -582,13 +587,14 @@ def monthly_query_for_user(
 
     if motorista_id is not None:
         motorista = get_user_or_404(db, motorista_id)
-        ensure_can_view_monthly_report(motorista, usuario)
+        ensure_can_view_monthly_report(db, motorista, usuario)
         return query
 
-    if usuario.perfil in {PerfilUsuario.admin, PerfilUsuario.analista}:
+    if usuario.perfil == PerfilUsuario.admin:
         return query
 
-    return query.join(Usuario, Viagem.usuario_id == Usuario.id).where(Usuario.superior_id == usuario.id)
+    visible_ids = collect_subordinate_ids(db, usuario.id) | {usuario.id}
+    return query.where(Viagem.usuario_id.in_(visible_ids))
 
 
 def closure_response(
@@ -775,7 +781,7 @@ def get_monthly_closure_detail(
     mes: Annotated[int, Query(ge=1, le=12)],
 ) -> MonthlyClosureResponse:
     motorista = get_user_or_404(db, motorista_id)
-    ensure_can_view_monthly_report(motorista, usuario)
+    ensure_can_view_monthly_report(db, motorista, usuario)
     return closure_response(db, motorista, ano, mes)
 
 

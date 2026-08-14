@@ -4,7 +4,6 @@ from enum import Enum
 class PerfilUsuario(str, Enum):
     motorista = "motorista"
     supervisor = "supervisor"
-    analista = "analista"
     admin = "admin"
 
 

@@ -21,6 +21,10 @@ class VeiculoResponse(BaseModel):
     responsavel_nome: str | None = None
     ativo: bool
     prioritario: bool = False
+    apolice_arquivo_mime_type: str | None = None
+    apolice_arquivo_tamanho_bytes: int | None = None
+    apolice_arquivo_atualizado_em: datetime | None = None
+    apolice_download_url: str | None = None
 
 
 class VeiculoEmRotaResponse(BaseModel):

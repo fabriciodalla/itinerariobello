@@ -91,11 +91,10 @@ def test_motorista_nao_acessa_relatorio_mensal(api_client, motorista_auth_header
 
 @pytest.mark.relatorio
 @pytest.mark.risco(peso=50, criticidade="alta", area="relatorio", referencias=("RF-016", "RF-017"))
-def test_analista_consulta_relatorio_mensal(
+def test_admin_consulta_relatorio_mensal(
     api_client,
     motorista_auth_headers,
     aprovador_auth_headers,
-    analista_auth_headers,
     test_vehicle_id,
 ):
     trip = create_trip_ready_for_monthly_closure(api_client, motorista_auth_headers, test_vehicle_id)
@@ -107,25 +106,48 @@ def test_analista_consulta_relatorio_mensal(
     )
     assert close_response.status_code == 200, close_response.text
 
-    response = api_client.get(
-        "/reports/monthly",
-        params=current_report_params(),
-        headers=analista_auth_headers,
-    )
+    settings = get_settings()
+    db = SessionLocal()
+    admin_id = None
+    try:
+        admin = Usuario(
+            nome="Admin Relatorio Mensal Teste",
+            email=f"admin.relatorio.mensal.{uuid4().hex}@bello.local",
+            senha_hash="hash",
+            perfil=PerfilUsuario.admin,
+            cargo="Administrador",
+        )
+        db.add(admin)
+        db.commit()
+        admin_id = admin.id
 
-    assert response.status_code == 200, response.text
-    data = json_body(response)
-    assert isinstance(data, (dict, list))
-    items = response_items(response)
-    trip_item = next(
-        (item for item in items if str(item.get("id") or item.get("viagem_id")) == trip["id"]),
-        None,
-    )
-    assert trip_item is not None, f"Relatorio mensal deve conter a viagem concluida {trip['id']}: {items}"
-    assert_report_item_contains_required_fields(trip_item)
-    assert_report_item_contains_required_evidence(trip_item)
-    assert trip_item["status"] == "concluida"
-    assert trip_item["status_fechamento"] == "fechado"
+        token = create_access_token(str(admin_id), settings.secret_key, settings.access_token_expire_minutes)
+        response = api_client.get(
+            "/reports/monthly",
+            params=current_report_params(),
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 200, response.text
+        data = json_body(response)
+        assert isinstance(data, (dict, list))
+        items = response_items(response)
+        trip_item = next(
+            (item for item in items if str(item.get("id") or item.get("viagem_id")) == trip["id"]),
+            None,
+        )
+        assert trip_item is not None, f"Relatorio mensal deve conter a viagem concluida {trip['id']}: {items}"
+        assert_report_item_contains_required_fields(trip_item)
+        assert_report_item_contains_required_evidence(trip_item)
+        assert trip_item["status"] == "concluida"
+        assert trip_item["status_fechamento"] == "fechado"
+    finally:
+        if admin_id is not None:
+            persisted = db.get(Usuario, admin_id)
+            if persisted is not None:
+                db.delete(persisted)
+                db.commit()
+        db.close()
 
 
 @pytest.mark.relatorio
@@ -264,22 +286,44 @@ def test_aprovador_consulta_fechamento_mensal_somente_de_subordinados(api_client
 @pytest.mark.foto
 @pytest.mark.gps
 @pytest.mark.risco(peso=50, criticidade="alta", area="relatorio", referencias=("RF-016", "RF-017"))
-def test_analista_exporta_relatorio_mensal(
+def test_admin_exporta_relatorio_mensal(
     api_client,
     motorista_auth_headers,
-    analista_auth_headers,
     test_vehicle_id,
 ):
     trip = create_trip_ready_for_monthly_closure(api_client, motorista_auth_headers, test_vehicle_id)
 
-    response = api_client.get(
-        "/reports/monthly/export",
-        params=current_report_params(),
-        headers=analista_auth_headers,
-    )
+    settings = get_settings()
+    db = SessionLocal()
+    admin_id = None
+    try:
+        admin = Usuario(
+            nome="Admin Exporta Relatorio Teste",
+            email=f"admin.exporta.relatorio.{uuid4().hex}@bello.local",
+            senha_hash="hash",
+            perfil=PerfilUsuario.admin,
+            cargo="Administrador",
+        )
+        db.add(admin)
+        db.commit()
+        admin_id = admin.id
 
-    assert trip["id"]
-    assert_pdf_response(response)
+        token = create_access_token(str(admin_id), settings.secret_key, settings.access_token_expire_minutes)
+        response = api_client.get(
+            "/reports/monthly/export",
+            params=current_report_params(),
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert trip["id"]
+        assert_pdf_response(response)
+    finally:
+        if admin_id is not None:
+            persisted = db.get(Usuario, admin_id)
+            if persisted is not None:
+                db.delete(persisted)
+                db.commit()
+        db.close()
 
 
 @pytest.mark.relatorio
@@ -288,7 +332,7 @@ def test_analista_exporta_relatorio_mensal(
 def test_relatorio_mensal_informa_endereco_nao_resolvido_quando_indisponivel(
     api_client,
     motorista_auth_headers,
-    analista_auth_headers,
+    aprovador_auth_headers,
     test_vehicle_id,
     monkeypatch,
 ):
@@ -307,7 +351,7 @@ def test_relatorio_mensal_informa_endereco_nao_resolvido_quando_indisponivel(
     response = api_client.get(
         "/reports/monthly",
         params=current_report_params(),
-        headers=analista_auth_headers,
+        headers=aprovador_auth_headers,
     )
 
     assert response.status_code == 200, response.text
@@ -434,60 +478,21 @@ def test_admin_consulta_e_exporta_relatorio_mensal_por_veiculo(api_client):
 @pytest.mark.relatorio
 @pytest.mark.permissao
 @pytest.mark.risco(peso=100, criticidade="critica", area="permissao", referencias=("RF-016", "RNF-004"))
-def test_analista_nao_consulta_relatorio_mensal_por_veiculo(api_client):
-    db = SessionLocal()
-    created = []
-    try:
-        settings = get_settings()
-        suffix = uuid4().hex[:6].upper()
-        analista = Usuario(
-            nome="Analista Sem Relatorio Veiculo",
-            email=f"analista.relatorio.veiculo.{suffix.lower()}@bello.local",
-            senha_hash="hash",
-            perfil=PerfilUsuario.analista,
-        )
-        veiculo = Veiculo(
-            placa=f"PV{suffix[:5]}",
-            modelo="Veiculo Restrito",
-            tipo=TipoVeiculo.empresa,
-            tipo_disponibilidade=TipoDisponibilidadeVeiculo.alocado,
-        )
-        db.add_all([analista, veiculo])
-        db.commit()
-        created.extend([analista, veiculo])
+def test_supervisor_nao_consulta_relatorio_mensal_por_veiculo(api_client, aprovador_auth_headers, test_vehicle_id):
+    params = {**current_report_params(), "veiculo_id": test_vehicle_id}
 
-        headers = {
-            "Authorization": (
-                "Bearer "
-                + create_access_token(
-                    str(analista.id),
-                    settings.secret_key,
-                    settings.access_token_expire_minutes,
-                )
-            )
-        }
-        params = {**current_report_params(), "veiculo_id": str(veiculo.id)}
+    response = api_client.get("/reports/monthly", params=params, headers=aprovador_auth_headers)
 
-        response = api_client.get("/reports/monthly", params=params, headers=headers)
-
-        assert_forbidden(response)
-    finally:
-        db.rollback()
-        for item in reversed(created):
-            persisted = db.get(type(item), item.id)
-            if persisted is not None:
-                db.delete(persisted)
-        db.commit()
-        db.close()
+    assert_forbidden(response)
 
 
 @pytest.mark.relatorio
 @pytest.mark.risco(peso=50, criticidade="alta", area="relatorio", referencias=("RF-016", "RF-017"))
-def test_relatorio_mensal_rejeita_mes_invalido(api_client, analista_auth_headers):
+def test_relatorio_mensal_rejeita_mes_invalido(api_client, aprovador_auth_headers):
     response = api_client.get(
         "/reports/monthly",
         params={"ano": current_report_params()["ano"], "mes": 13},
-        headers=analista_auth_headers,
+        headers=aprovador_auth_headers,
     )
 
     assert_validation_error(response)

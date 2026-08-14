@@ -1,17 +1,19 @@
 from __future__ import annotations
 
+import json
 from uuid import uuid4
 
 import pytest
 from sqlalchemy import select
 
-from assertions import assert_forbidden, json_body
+from assertions import assert_forbidden, assert_validation_error, json_body
 from app.core.config import get_settings
 from app.core.security import create_access_token, hash_password
 from app.db.session import SessionLocal
 from app.models.enums import PerfilUsuario
 from app.models.usuario import Usuario
 from app.models.veiculo import Veiculo
+from factories import INVALID_TEXT_FILE, SAMPLE_JPEG
 
 
 def signup_payload(**overrides):
@@ -28,6 +30,13 @@ def signup_payload(**overrides):
     }
     payload.update(overrides)
     return payload
+
+
+def post_signup_request(api_client, payload: dict, *, files: dict | None = None):
+    request = {"data": {"payload": json.dumps(payload)}}
+    if files:
+        request["files"] = files
+    return api_client.post("/signup-requests", **request)
 
 
 def admin_headers(db) -> tuple[dict[str, str], Usuario]:
@@ -49,7 +58,7 @@ def admin_headers(db) -> tuple[dict[str, str], Usuario]:
 def test_solicitacao_cadastro_publica_cria_registro_pendente(api_client):
     payload = signup_payload()
 
-    response = api_client.post("/signup-requests", json=payload)
+    response = post_signup_request(api_client, payload)
 
     assert response.status_code == 201, response.text
     data = json_body(response)
@@ -58,6 +67,42 @@ def test_solicitacao_cadastro_publica_cria_registro_pendente(api_client):
     assert data["veiculo_placa"] == payload["veiculo_placa"].upper()
     assert data["veiculo_modelo"] == "HRV"
     assert data["veiculo_marca"] == "HONDA"
+    assert data["cnh_download_url"] is None
+    assert data["apolice_download_url"] is None
+
+
+@pytest.mark.permissao
+@pytest.mark.risco(peso=20, criticidade="media", area="permissao", referencias=("RF-021", "RN-028"))
+def test_solicitacao_cadastro_aceita_cnh_e_apolice_opcionais(api_client):
+    payload = signup_payload()
+
+    response = post_signup_request(
+        api_client,
+        payload,
+        files={
+            "cnh_arquivo": ("cnh.jpg", SAMPLE_JPEG, "image/jpeg"),
+            "apolice_arquivo": ("apolice.jpg", SAMPLE_JPEG, "image/jpeg"),
+        },
+    )
+
+    assert response.status_code == 201, response.text
+    data = json_body(response)
+    assert data["cnh_download_url"] == f"/signup-requests/{data['id']}/cnh"
+    assert data["apolice_download_url"] == f"/signup-requests/{data['id']}/apolice"
+
+
+@pytest.mark.foto
+@pytest.mark.risco(peso=20, criticidade="media", area="foto", referencias=("RN-028",))
+def test_solicitacao_cadastro_rejeita_arquivo_invalido_como_cnh(api_client):
+    payload = signup_payload()
+
+    response = post_signup_request(
+        api_client,
+        payload,
+        files={"cnh_arquivo": ("cnh.txt", INVALID_TEXT_FILE, "text/plain")},
+    )
+
+    assert_validation_error(response)
 
 
 @pytest.mark.permissao
@@ -77,7 +122,11 @@ def test_admin_aprova_solicitacao_e_cria_usuario_e_veiculo(api_client):
     created_user_id = None
     created_vehicle_id = None
     try:
-        create_response = api_client.post("/signup-requests", json=payload)
+        create_response = post_signup_request(
+            api_client,
+            payload,
+            files={"cnh_arquivo": ("cnh.jpg", SAMPLE_JPEG, "image/jpeg")},
+        )
         assert create_response.status_code == 201, create_response.text
         solicitacao_id = json_body(create_response)["id"]
 
@@ -109,6 +158,11 @@ def test_admin_aprova_solicitacao_e_cria_usuario_e_veiculo(api_client):
         assert veiculo is not None
         assert veiculo.modelo == "HRV"
         assert veiculo.marca == "HONDA"
+
+        usuario_criado = db.get(Usuario, created_user_id)
+        assert usuario_criado is not None
+        assert usuario_criado.cnh_arquivo_path is not None
+        assert usuario_criado.cnh_download_url == f"/users/{usuario_criado.id}/cnh"
     finally:
         db.rollback()
         for model, item_id in ((Veiculo, created_vehicle_id), (Usuario, created_user_id), (Usuario, admin.id)):

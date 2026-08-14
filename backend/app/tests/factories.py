@@ -21,6 +21,7 @@ SAMPLE_JPEG = base64.b64decode(
     "gD//2Q=="
 )
 INVALID_TEXT_FILE = b"arquivo invalido para teste"
+SAMPLE_PDF = b"%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF"
 
 
 def start_payload(veiculo_id: str, **overrides: Any) -> dict[str, Any]:

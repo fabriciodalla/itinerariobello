@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import Boolean, Enum as SqlEnum, ForeignKey, Index, String, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, Enum as SqlEnum, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UuidPkMixin
@@ -39,10 +40,21 @@ class Usuario(UuidPkMixin, TimestampMixin, Base):
     pode_aprovar: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     ativo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
 
+    cnh_arquivo_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    cnh_arquivo_mime_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    cnh_arquivo_tamanho_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    cnh_arquivo_atualizado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     @property
     def e_aprovador(self) -> bool:
         """Retorna True se o usuario tem permissao de supervisor — seja pelo campo pode_aprovar ou pelo perfil supervisor."""
         return self.pode_aprovar or self.perfil == PerfilUsuario.supervisor
+
+    @property
+    def cnh_download_url(self) -> str | None:
+        if not self.cnh_arquivo_path:
+            return None
+        return f"/users/{self.id}/cnh"
 
     superior: Mapped[Usuario | None] = relationship(remote_side="Usuario.id", back_populates="subordinados")
     subordinados: Mapped[list[Usuario]] = relationship(back_populates="superior")

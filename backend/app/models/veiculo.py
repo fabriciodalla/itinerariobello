@@ -1,9 +1,20 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import Boolean, CheckConstraint, Enum as SqlEnum, ForeignKey, Index, String, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    Enum as SqlEnum,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UuidPkMixin
@@ -48,5 +59,16 @@ class Veiculo(UuidPkMixin, TimestampMixin, Base):
     )
     ativo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
 
+    apolice_arquivo_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    apolice_arquivo_mime_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    apolice_arquivo_tamanho_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    apolice_arquivo_atualizado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     usuario_responsavel: Mapped[Usuario | None] = relationship(back_populates="veiculos_responsaveis")
     viagens: Mapped[list[Viagem]] = relationship(back_populates="veiculo")
+
+    @property
+    def apolice_download_url(self) -> str | None:
+        if not self.apolice_arquivo_path:
+            return None
+        return f"/vehicles/{self.id}/apolice"

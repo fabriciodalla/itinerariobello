@@ -70,8 +70,8 @@ def test_motorista_nao_fecha_fechamento_mensal(
 @pytest.mark.permissao
 @pytest.mark.viagem
 @pytest.mark.risco(peso=100, criticidade="critica", area="permissao", referencias=("RF-004", "RNF-004"))
-def test_analista_nao_inicia_viagem(api_client, analista_auth_headers, test_vehicle_id):
-    response = post_trip_start(api_client, analista_auth_headers, start_payload(test_vehicle_id))
+def test_supervisor_nao_inicia_viagem(api_client, aprovador_auth_headers, test_vehicle_id):
+    response = post_trip_start(api_client, aprovador_auth_headers, start_payload(test_vehicle_id))
 
     assert_forbidden(response)
 
@@ -114,7 +114,7 @@ def test_admin_nao_inicia_viagem(api_client, test_vehicle_id):
 
 @pytest.mark.permissao
 @pytest.mark.risco(peso=100, criticidade="critica", area="permissao", referencias=("RNF-004",))
-def test_analista_nao_cadastra_veiculo(api_client, analista_auth_headers):
+def test_supervisor_nao_cadastra_veiculo(api_client, aprovador_auth_headers):
     response = api_client.post(
         "/vehicles",
         json={
@@ -123,7 +123,7 @@ def test_analista_nao_cadastra_veiculo(api_client, analista_auth_headers):
             "tipo": "empresa",
             "ativo": True,
         },
-        headers=analista_auth_headers,
+        headers=aprovador_auth_headers,
     )
 
     assert_forbidden(response)

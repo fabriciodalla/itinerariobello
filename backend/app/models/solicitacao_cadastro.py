@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import DateTime, Enum as SqlEnum, ForeignKey, Index, String, Text
+from sqlalchemy import DateTime, Enum as SqlEnum, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UuidPkMixin
@@ -30,6 +30,12 @@ class SolicitacaoCadastro(UuidPkMixin, TimestampMixin, Base):
     veiculo_modelo: Mapped[str] = mapped_column(String(120), nullable=False)
     veiculo_marca: Mapped[str] = mapped_column(String(80), nullable=False)
     observacao: Mapped[str | None] = mapped_column(Text, nullable=True)
+    cnh_arquivo_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    cnh_arquivo_mime_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    cnh_arquivo_tamanho_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    apolice_arquivo_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    apolice_arquivo_mime_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    apolice_arquivo_tamanho_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     status: Mapped[StatusSolicitacaoCadastro] = mapped_column(
         SqlEnum(
             StatusSolicitacaoCadastro,
@@ -52,3 +58,15 @@ class SolicitacaoCadastro(UuidPkMixin, TimestampMixin, Base):
     usuario: Mapped[Usuario | None] = relationship(foreign_keys=[usuario_id])
     veiculo: Mapped[Veiculo | None] = relationship()
     processado_por: Mapped[Usuario | None] = relationship(foreign_keys=[processado_por_id])
+
+    @property
+    def cnh_download_url(self) -> str | None:
+        if not self.cnh_arquivo_path:
+            return None
+        return f"/signup-requests/{self.id}/cnh"
+
+    @property
+    def apolice_download_url(self) -> str | None:
+        if not self.apolice_arquivo_path:
+            return None
+        return f"/signup-requests/{self.id}/apolice"
