@@ -151,6 +151,8 @@ Na listagem para partida, a API deve retornar apenas veículos permitidos para o
 
 Quando um veículo `empresa` tiver `usuario_responsavel_id`, ele deve aparecer priorizado para o responsável usual, mas continua compartilhável quando estiver disponível.
 
+Um usuário pode ter mais de um veículo responsável. A ordem de prioridade na listagem para partida é: veículo `principal` do usuário, depois os demais veículos próprios dele, depois os veículos alocados da empresa (RN-033). O campo `prioritario` da resposta é relativo ao usuário autenticado e só é `true` para o veículo principal dele.
+
 Consulta de veículos em rota:
 
 ```txt
@@ -185,7 +187,8 @@ Campos principais de veículo:
 | `marca` | Texto ou nulo | Marca do veículo em caixa alta, quando informada |
 | `tipo` | Enum | `proprio`, `alugado` ou `empresa` |
 | `tipo_disponibilidade` | Enum | `fixo` ou `alocado` |
-| `usuario_responsavel_id` | UUID ou nulo | Obrigatório para veículo `fixo` |
+| `usuario_responsavel_id` | UUID ou nulo | Obrigatório para veículo `fixo`; um usuário pode ter vários veículos |
+| `principal` | Booleano | Marca o veículo principal do `usuario_responsavel_id`; no máximo um por usuário (RN-033) |
 | `ativo` | Booleano | Define se o veículo pode ser usado |
 
 ## 7. Viagens

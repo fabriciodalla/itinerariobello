@@ -79,6 +79,13 @@ def create_user(
         )
 
     cargo = payload.cargo.strip() if payload.cargo else None
+    pode_aprovar = (
+        payload.pode_aprovar
+        if "pode_aprovar" in payload.model_fields_set
+        # cargo de coordenacao/gerencia ou perfil supervisor sugerem pode_aprovar=True
+        # como padrao, mas somente quando o cadastro nao informou o campo explicitamente
+        else resolve_pode_aprovar(cargo, payload.perfil, payload.pode_aprovar)
+    )
     usuario = Usuario(
         nome=payload.nome.strip(),
         email=email,
@@ -86,7 +93,7 @@ def create_user(
         cargo=cargo,
         perfil=payload.perfil,
         superior_id=payload.superior_id,
-        pode_aprovar=resolve_pode_aprovar(cargo, payload.perfil, payload.pode_aprovar),
+        pode_aprovar=pode_aprovar,
         ativo=payload.ativo,
     )
     db.add(usuario)
@@ -143,15 +150,17 @@ def patch_user(
                 )
         usuario.superior_id = payload.superior_id
 
-    if "pode_aprovar" in fields and payload.pode_aprovar is not None:
-        usuario.pode_aprovar = payload.pode_aprovar
-
     if "ativo" in fields and payload.ativo is not None:
         usuario.ativo = payload.ativo
 
-    # cargo de coordenacao/gerencia ou perfil supervisor sempre garantem pode_aprovar,
-    # mesmo que o formulario nao tenha marcado a caixa explicitamente
-    usuario.pode_aprovar = resolve_pode_aprovar(usuario.cargo, usuario.perfil, usuario.pode_aprovar)
+    if "pode_aprovar" in fields and payload.pode_aprovar is not None:
+        # decisao explicita do admin sempre prevalece, mesmo para supervisor
+        # ou cargo de coordenacao/gerencia
+        usuario.pode_aprovar = payload.pode_aprovar
+    elif "cargo" in fields or "perfil" in fields:
+        # cargo de coordenacao/gerencia ou perfil supervisor sugerem pode_aprovar=True
+        # como padrao, somente quando esta edicao nao decidiu o campo explicitamente
+        usuario.pode_aprovar = resolve_pode_aprovar(usuario.cargo, usuario.perfil, usuario.pode_aprovar)
 
     db.commit()
     db.refresh(usuario)

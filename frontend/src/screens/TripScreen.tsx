@@ -480,14 +480,16 @@ function VehicleOption({
 
 function vehicleAvailabilityLabel(vehicle: Vehicle) {
   const parts: string[] = []
-  if (vehicle.responsavel_nome) {
+  if (vehicle.prioritario) {
+    parts.push('Seu veiculo principal')
+  } else if (vehicle.responsavel_nome) {
     parts.push(vehicle.responsavel_nome)
   }
   if (vehicle.unidade) {
     parts.push(vehicle.unidade)
   }
   if (!parts.length) {
-    parts.push(vehicle.prioritario ? 'cadastrado para voce' : 'disponivel')
+    parts.push('disponivel')
   }
   return parts.join(' | ')
 }

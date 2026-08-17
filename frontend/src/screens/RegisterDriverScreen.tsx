@@ -26,6 +26,7 @@ interface FormState {
   veiculoModelo: string
   veiculoMarca: string
   tipoVeiculo: TipoVeiculo
+  veiculoPrincipal: boolean
 }
 
 const emptyForm: FormState = {
@@ -40,6 +41,7 @@ const emptyForm: FormState = {
   veiculoModelo: '',
   veiculoMarca: '',
   tipoVeiculo: 'proprio',
+  veiculoPrincipal: true,
 }
 
 function describeError(error: unknown, fallback: string) {
@@ -91,6 +93,7 @@ export function RegisterDriverScreen({ token, users, onMessage, onBack, onCreate
           tipo: form.tipoVeiculo,
           usuario_responsavel_id: usuario.id,
           ativo: true,
+          principal: form.veiculoPrincipal,
         })
         veiculoId = veiculo.id
       } catch (error) {
@@ -218,6 +221,14 @@ export function RegisterDriverScreen({ token, users, onMessage, onBack, onCreate
             </select>
           </label>
         </div>
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            checked={form.veiculoPrincipal}
+            onChange={(e) => update('veiculoPrincipal', e.target.checked)}
+          />
+          <span>Definir como veiculo principal do motorista</span>
+        </label>
 
         <div className="form-section-title">Documentos (opcional)</div>
         <label>

@@ -21,8 +21,10 @@ from app.services.documents import apolice_subdir, delete_document_if_exists, sa
 from app.services.veiculos import (
     listar_veiculos_disponiveis_para_partida,
     listar_veiculos_em_rota,
+    marcar_como_principal,
     normalizar_marca_veiculo,
     normalizar_modelo_veiculo,
+    usuario_tem_veiculo_ativo,
 )
 
 router = APIRouter(prefix="/vehicles", tags=["vehicles"])
@@ -55,7 +57,8 @@ def to_response(veiculo: Veiculo, usuario_id) -> VeiculoResponse:
         usuario_responsavel_id=veiculo.usuario_responsavel_id,
         responsavel_nome=_primeiro_nome(responsavel.nome) if responsavel else None,
         ativo=veiculo.ativo,
-        prioritario=veiculo.usuario_responsavel_id == usuario_id,
+        principal=veiculo.principal,
+        prioritario=veiculo.usuario_responsavel_id == usuario_id and veiculo.principal,
         apolice_arquivo_mime_type=veiculo.apolice_arquivo_mime_type,
         apolice_arquivo_tamanho_bytes=veiculo.apolice_arquivo_tamanho_bytes,
         apolice_arquivo_atualizado_em=veiculo.apolice_arquivo_atualizado_em,
@@ -119,6 +122,19 @@ def create_vehicle(
             detail="Veiculo fixo exige usuario responsavel.",
         )
 
+    if payload.principal and payload.usuario_responsavel_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Veiculo principal exige usuario responsavel.",
+        )
+
+    # quando o cadastro nao informa explicitamente, o primeiro veiculo de um
+    # usuario vira principal automaticamente; os seguintes nao, a menos que
+    # o admin marque a opcao
+    quer_principal = payload.principal
+    if quer_principal is None and payload.usuario_responsavel_id is not None:
+        quer_principal = not usuario_tem_veiculo_ativo(db, payload.usuario_responsavel_id)
+
     veiculo = Veiculo(
         placa=placa,
         modelo=normalizar_modelo_veiculo(payload.modelo),
@@ -131,6 +147,9 @@ def create_vehicle(
         ativo=payload.ativo,
     )
     db.add(veiculo)
+    db.flush()
+    if quer_principal:
+        marcar_como_principal(db, veiculo)
     db.commit()
     db.refresh(veiculo)
     return to_response(veiculo, payload.usuario_responsavel_id)
@@ -164,6 +183,10 @@ def patch_vehicle(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="Usuario responsavel nao encontrado.",
             )
+        if payload.usuario_responsavel_id != veiculo.usuario_responsavel_id:
+            # trocou (ou removeu) o responsavel: o veiculo deixa de ser
+            # principal do responsavel anterior
+            veiculo.principal = False
         veiculo.usuario_responsavel_id = payload.usuario_responsavel_id
 
     if "tipo_disponibilidade" in fields and payload.tipo_disponibilidade is not None:
@@ -180,6 +203,17 @@ def patch_vehicle(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Veiculo fixo exige usuario responsavel.",
         )
+
+    if "principal" in fields and payload.principal is not None:
+        if payload.principal:
+            if veiculo.usuario_responsavel_id is None:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Veiculo principal exige usuario responsavel.",
+                )
+            marcar_como_principal(db, veiculo)
+        else:
+            veiculo.principal = False
 
     db.commit()
     db.refresh(veiculo)

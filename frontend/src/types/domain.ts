@@ -39,6 +39,7 @@ export interface Vehicle {
   usuario_responsavel_id: string | null
   responsavel_nome: string | null
   ativo: boolean
+  principal: boolean
   prioritario: boolean
   apolice_arquivo_mime_type: string | null
   apolice_arquivo_tamanho_bytes: number | null
@@ -125,6 +126,7 @@ export interface VehicleCreatePayload {
   unidade?: string | null
   categoria?: string | null
   ativo?: boolean
+  principal?: boolean | null
 }
 
 export interface SignupApprovePayload {

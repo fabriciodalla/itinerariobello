@@ -183,6 +183,63 @@ def test_editar_cargo_de_gestor_garante_pode_aprovar_mesmo_sem_marcar(api_client
 
 
 @pytest.mark.permissao
+@pytest.mark.risco(peso=100, criticidade="critica", area="permissao", referencias=("RN-020", "RF-014"))
+def test_editar_usuario_com_pode_aprovar_explicito_false_nao_e_sobrescrito(api_client):
+    """O admin pode desmarcar 'pode aprovar' explicitamente para um supervisor ou
+    para quem tem cargo de coordenacao/gerencia; essa escolha explicita deve
+    prevalecer e nao pode ser silenciosamente revertida para True (regressao:
+    supervisores continuavam com acesso ao fechamento mesmo apos o admin
+    desmarcar a opcao)."""
+    settings = get_settings()
+    db = SessionLocal()
+    created = []
+    try:
+        suffix = uuid4().hex[:6]
+        admin = Usuario(
+            nome="Admin Pode Aprovar Teste",
+            email=f"admin.podeaprovar.{suffix}@bello.local",
+            senha_hash="hash",
+            perfil=PerfilUsuario.admin,
+        )
+        supervisor = Usuario(
+            nome="Supervisor Sem Fechamento Teste",
+            email=f"supervisor.semfechamento.{suffix}@bello.local",
+            senha_hash="hash",
+            perfil=PerfilUsuario.supervisor,
+            cargo="COORDENADOR REGIONAL",
+            pode_aprovar=True,
+        )
+        db.add_all([admin, supervisor])
+        db.commit()
+        created.extend([admin, supervisor])
+
+        token = create_access_token(str(admin.id), settings.secret_key, settings.access_token_expire_minutes)
+        response = api_client.patch(
+            f"/users/{supervisor.id}",
+            json={"pode_aprovar": False},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["perfil"] == "supervisor"
+        assert body["cargo"] == "COORDENADOR REGIONAL"
+        assert body["pode_aprovar"] is False
+
+        db.expire_all()
+        persistido = db.get(Usuario, supervisor.id)
+        assert persistido.pode_aprovar is False
+    finally:
+        db.rollback()
+        for item in reversed(created):
+            persisted = db.get(type(item), item.id)
+            if persisted is not None:
+                db.delete(persisted)
+        db.commit()
+        db.close()
+
+
+@pytest.mark.permissao
 @pytest.mark.risco(peso=50, criticidade="alta", area="permissao", referencias=("RF-016", "RN-031"))
 def test_criar_usuario_com_cargo_de_gestor_garante_pode_aprovar(api_client):
     """Mesma garantia no cadastro direto (POST /users), nao so na edicao."""

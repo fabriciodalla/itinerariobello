@@ -20,6 +20,7 @@ class VeiculoResponse(BaseModel):
     usuario_responsavel_id: UUID | None = None
     responsavel_nome: str | None = None
     ativo: bool
+    principal: bool = False
     prioritario: bool = False
     apolice_arquivo_mime_type: str | None = None
     apolice_arquivo_tamanho_bytes: int | None = None
@@ -48,6 +49,7 @@ class VeiculoCreateRequest(BaseModel):
     unidade: str | None = Field(default=None, max_length=120)
     categoria: str | None = Field(default=None, max_length=120)
     ativo: bool = True
+    principal: bool | None = None
 
 
 class VeiculoPatchRequest(BaseModel):
@@ -55,3 +57,4 @@ class VeiculoPatchRequest(BaseModel):
     tipo_disponibilidade: TipoDisponibilidadeVeiculo | None = None
     unidade: str | None = Field(default=None, max_length=120)
     ativo: bool | None = None
+    principal: bool | None = None

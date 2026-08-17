@@ -86,7 +86,11 @@ export function MonthlyClosureScreen({ token, user, onMessage }: MonthlyClosureS
 
   const selectedReports = selectedMotoristaId
     ? reports.filter((item) => item.usuario_id === selectedMotoristaId)
-    : reports
+    : reports.filter((item) => {
+        const motorista = usersById.get(item.usuario_id)
+        if (!motorista) return true
+        return showOnlyInactive ? !motorista.ativo : motorista.ativo
+      })
   const visibleReports = isVehicleMode ? reports : selectedReports
   const selectedClosure = !isVehicleMode
     ? closures.find((item) => item.motorista_id === selectedMotoristaId) ?? null

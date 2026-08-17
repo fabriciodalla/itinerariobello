@@ -52,6 +52,7 @@ O fechamento mensal é sempre por motorista individual, considerando as viagens 
 | RN-030 | Apenas administrador pode enviar ou substituir CNH de usuário e apólice de veículo fora da solicitação pública de cadastro | Backend |
 | RN-031 | Responsável pelo fechamento visualiza viagens, relatório mensal e fechamentos de toda a cadeia de subordinados (diretos e indiretos, ex.: gerente vê coordenador regional e coordenador local abaixo dele); ele também vê sempre suas próprias viagens, quando existirem | Backend |
 | RN-032 | Fechar o consolidado mensal de um motorista continua exigindo ser superior imediato dele (RN-020); a visão ampliada de RN-031 vale só para consulta/exportação, não para a ação de fechar | Backend |
+| RN-033 | Um usuário pode ter mais de um veículo responsável; no máximo um deles pode ser marcado `principal` por vez (banco reforça com índice único). Na seleção de partida, a ordem é: veículo principal do usuário, depois os demais veículos próprios dele, depois os veículos alocados da empresa | Backend |
 
 ## 4. Fluxo De Validação Da Partida
 

@@ -1676,6 +1676,33 @@ textarea:focus {
   box-shadow: 0 4px 12px rgba(0, 61, 165, 0.18);
 }
 
+/* Variante em grade: usada quando ha 3+ opcoes (ex.: modos de cadastro) para
+   evitar rolagem horizontal e texto cortado — cada opcao ocupa uma coluna
+   igual, com icone empilhado sobre o rotulo e quebra de linha permitida. */
+.segmented-control-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  overflow-x: visible;
+  padding-bottom: 0;
+}
+
+.segmented-control-grid button {
+  flex-direction: column;
+  min-height: 56px;
+  padding: 8px 4px;
+  border-radius: 12px;
+  font-size: 0.78rem;
+  white-space: normal;
+  line-height: 1.15;
+  text-align: center;
+}
+
+.segmented-control-grid button svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
 .list-card {
   display: grid;
   gap: 10px;

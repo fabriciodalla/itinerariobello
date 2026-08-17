@@ -54,7 +54,8 @@ A CNH é um anexo opcional (ver `docs/regras-negocio.md`, RN-028 a RN-030): nunc
 | `marca` | Texto | Não | Marca do veículo quando informada no cadastro ou na solicitação pública, padronizada em caixa alta |
 | `tipo` | Enum | Sim | `proprio`, `alugado`, `empresa` |
 | `tipo_disponibilidade` | Enum | Sim | `fixo` ou `alocado` |
-| `usuario_responsavel_id` | UUID | Depende | Obrigatório quando `tipo_disponibilidade = fixo` |
+| `usuario_responsavel_id` | UUID | Depende | Obrigatório quando `tipo_disponibilidade = fixo`. Um usuário pode ter mais de um veículo responsável (1:N) |
+| `principal` | Booleano | Sim | Marca o veículo principal do `usuario_responsavel_id` quando ele tem mais de um. No máximo um `principal = true` por usuário responsável (RN-033) |
 | `unidade` | Texto | Não | Unidade operacional da planilha |
 | `categoria` | Texto | Não | Categoria ou classificação operacional |
 | `ativo` | Booleano | Sim | Controla disponibilidade |
@@ -79,6 +80,7 @@ Regras de disponibilidade:
 - `empresa` na planilha: veículo compartilhável, salvo como `tipo = empresa` e `tipo_disponibilidade = alocado`.
 - Mesmo quando o veículo é compartilhável, `usuario_responsavel_id` pode indicar o responsável usual para priorizar a seleção.
 - Veículo `fixo` deve ter `usuario_responsavel_id`.
+- Um usuário pode ter mais de um veículo responsável. Entre os veículos do mesmo usuário, um pode ser marcado `principal`; na seleção de partida do motorista, o principal aparece primeiro, os demais veículos próprios em seguida e por último os veículos alocados da empresa (RN-033).
 - Veículo inativo não deve aparecer como opção para iniciar viagem.
 
 ## 5. Viagem

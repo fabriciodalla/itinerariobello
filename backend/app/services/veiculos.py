@@ -1,7 +1,7 @@
 from datetime import date, datetime, time, timedelta, timezone
 from uuid import UUID
 
-from sqlalchemy import Select, case, or_, select
+from sqlalchemy import Select, and_, case, or_, select, update
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.enums import StatusViagem, TipoDisponibilidadeVeiculo
@@ -80,9 +80,12 @@ def consulta_veiculos_disponiveis_para_partida(
         .where(Viagem.status.in_(STATUS_BLOQUEIA_VEICULO_NO_DIA))
     )
 
+    # 0: veiculo principal do usuario | 1: outro veiculo proprio do usuario
+    # (segundo carro, etc.) | 2: veiculos de terceiros/alocados da empresa
     prioridade_responsavel = case(
-        (Veiculo.usuario_responsavel_id == usuario_id, 0),
-        else_=1,
+        (and_(Veiculo.usuario_responsavel_id == usuario_id, Veiculo.principal.is_(True)), 0),
+        (Veiculo.usuario_responsavel_id == usuario_id, 1),
+        else_=2,
     )
 
     return (
@@ -105,6 +108,34 @@ def listar_veiculos_disponiveis_para_partida(
     data_referencia: date,
 ) -> list[Veiculo]:
     return list(db.scalars(consulta_veiculos_disponiveis_para_partida(usuario_id, data_referencia)).all())
+
+
+def usuario_tem_veiculo_ativo(db: Session, usuario_responsavel_id: UUID) -> bool:
+    return (
+        db.scalar(
+            select(Veiculo.id)
+            .where(Veiculo.usuario_responsavel_id == usuario_responsavel_id)
+            .where(Veiculo.ativo.is_(True))
+            .limit(1)
+        )
+        is not None
+    )
+
+
+def marcar_como_principal(db: Session, veiculo: Veiculo) -> None:
+    """Marca o veiculo como principal do seu usuario responsavel, desmarcando
+    qualquer outro veiculo que hoje seja o principal desse mesmo usuario (no
+    maximo um principal por usuario, reforcado tambem por indice unico no banco)."""
+    if veiculo.usuario_responsavel_id is None:
+        return
+    db.execute(
+        update(Veiculo)
+        .where(Veiculo.usuario_responsavel_id == veiculo.usuario_responsavel_id)
+        .where(Veiculo.id != veiculo.id)
+        .where(Veiculo.principal.is_(True))
+        .values(principal=False)
+    )
+    veiculo.principal = True
 
 
 def listar_veiculos_em_rota(db: Session) -> list[Viagem]:

@@ -103,6 +103,13 @@ def approve_signup_request(
     if payload.superior_id is not None and db.get(Usuario, payload.superior_id) is None:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Superior nao encontrado.")
 
+    pode_aprovar = (
+        payload.pode_aprovar
+        if "pode_aprovar" in payload.model_fields_set
+        # cargo de coordenacao/gerencia ou perfil supervisor sugerem pode_aprovar=True
+        # como padrao, mas somente quando a aprovacao nao informou o campo explicitamente
+        else resolve_pode_aprovar(solicitacao.cargo, payload.perfil, bool(payload.pode_aprovar))
+    )
     usuario = Usuario(
         nome=solicitacao.nome,
         email=solicitacao.email,
@@ -110,7 +117,7 @@ def approve_signup_request(
         cargo=solicitacao.cargo,
         perfil=payload.perfil,
         superior_id=payload.superior_id,
-        pode_aprovar=resolve_pode_aprovar(solicitacao.cargo, payload.perfil, bool(payload.pode_aprovar)),
+        pode_aprovar=pode_aprovar,
         ativo=True,
     )
     if solicitacao.cnh_arquivo_path:

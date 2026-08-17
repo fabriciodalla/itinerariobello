@@ -6,6 +6,7 @@ import {
   Edit3,
   FileText,
   Filter,
+  Inbox,
   KeyRound,
   Loader2,
   MoreVertical,
@@ -22,6 +23,7 @@ import type { User, Vehicle, VehicleInRoute } from '../types/domain'
 import { CARGO_OPTIONS } from '../utils/cargos'
 import { SignupRequestsScreen } from './SignupRequestsScreen'
 import { RegisterDriverScreen } from './RegisterDriverScreen'
+import { RegisterVehicleScreen } from './RegisterVehicleScreen'
 import { MonthlyClosureScreen } from './MonthlyClosureScreen'
 
 export type AdminTab = 'usuarios' | 'cadastros' | 'em_rota' | 'fechamento'
@@ -81,21 +83,24 @@ export function AdminCentralScreen({ token, user, vehiclesInRoute, tab, onMessag
     { type: 'user'; user: User } | { type: 'vehicle'; vehicle: Vehicle } | null
   >(null)
   const [saving, setSaving] = useState(false)
-  const [cadastroView, setCadastroView] = useState<'pendentes' | 'novo'>('pendentes')
+  const [cadastroView, setCadastroView] = useState<'pendentes' | 'novo' | 'novo_veiculo'>('pendentes')
 
   const [novaSenha, setNovaSenha] = useState('')
   const [confirmacao, setConfirmacao] = useState('')
+  const [editEmail, setEditEmail] = useState('')
   const [editCargo, setEditCargo] = useState('')
   const [editSuperiorId, setEditSuperiorId] = useState('')
   const [editPerfil, setEditPerfil] = useState('')
   const [editPodeAprovar, setEditPodeAprovar] = useState(false)
   const [editAtivo, setEditAtivo] = useState(true)
+  const [editInativarVeiculo, setEditInativarVeiculo] = useState(false)
   const [cnhArquivo, setCnhArquivo] = useState<File | null>(null)
 
   const [editVeiculoResponsavel, setEditVeiculoResponsavel] = useState('')
   const [editVeiculoDisponibilidade, setEditVeiculoDisponibilidade] = useState('')
   const [editVeiculoUnidade, setEditVeiculoUnidade] = useState('')
   const [editVeiculoAtivo, setEditVeiculoAtivo] = useState(true)
+  const [editVeiculoPrincipal, setEditVeiculoPrincipal] = useState(false)
   const [apoliceArquivo, setApoliceArquivo] = useState<File | null>(null)
   const [uploadingDoc, setUploadingDoc] = useState(false)
 
@@ -225,11 +230,13 @@ export function AdminCentralScreen({ token, user, vehiclesInRoute, tab, onMessag
   }
 
   function openEditUser(u: User) {
+    setEditEmail(u.email)
     setEditCargo(u.cargo ?? '')
     setEditSuperiorId(u.superior_id ?? '')
     setEditPerfil(u.perfil)
     setEditPodeAprovar(u.pode_aprovar)
     setEditAtivo(u.ativo)
+    setEditInativarVeiculo(false)
     setCnhArquivo(null)
     setEditTarget({ type: 'user', user: u })
   }
@@ -239,6 +246,7 @@ export function AdminCentralScreen({ token, user, vehiclesInRoute, tab, onMessag
     setEditVeiculoDisponibilidade(vehicle.tipo_disponibilidade)
     setEditVeiculoUnidade(vehicle.unidade ?? '')
     setEditVeiculoAtivo(vehicle.ativo)
+    setEditVeiculoPrincipal(vehicle.principal)
     setApoliceArquivo(null)
     setEditTarget({ type: 'vehicle', vehicle })
   }
@@ -304,15 +312,25 @@ export function AdminCentralScreen({ token, user, vehiclesInRoute, tab, onMessag
 
   async function handleSaveUser() {
     if (!editTarget || editTarget.type !== 'user') return
+    if (!editEmail.trim()) { onMessage('Informe o e-mail do usuario.'); return }
     setSaving(true)
     try {
       await api.patchUser(token, editTarget.user.id, {
+        email: editEmail.trim(),
         cargo: editCargo.trim() || null,
         superior_id: editSuperiorId || null,
         perfil: editPerfil,
         pode_aprovar: editPodeAprovar,
         ativo: editAtivo,
       })
+      if (!editAtivo && editInativarVeiculo) {
+        const veiculosVinculados = vehicles.filter(
+          (v) => v.usuario_responsavel_id === editTarget.user.id && v.ativo,
+        )
+        for (const veiculo of veiculosVinculados) {
+          await api.patchVehicle(token, veiculo.id, { ativo: false })
+        }
+      }
       onMessage(`${editTarget.user.nome} atualizado.`)
       closeModal()
       await load()
@@ -330,6 +348,7 @@ export function AdminCentralScreen({ token, user, vehiclesInRoute, tab, onMessag
         tipo_disponibilidade: editVeiculoDisponibilidade,
         unidade: editVeiculoUnidade || null,
         ativo: editVeiculoAtivo,
+        principal: editVeiculoPrincipal,
       })
       onMessage(`Veiculo ${editTarget.vehicle.placa} atualizado.`)
       closeModal()
@@ -501,7 +520,7 @@ export function AdminCentralScreen({ token, user, vehiclesInRoute, tab, onMessag
                     {filteredVehicles.map((v) => (
                       <div className="user-row" key={v.id}>
                         <div className="user-row-info">
-                          <strong>{v.placa} | {v.modelo}</strong>
+                          <strong>{v.placa} | {v.modelo}{v.principal ? ' | Principal' : ''}</strong>
                           <span className="user-row-email">
                             {v.responsavel_nome ?? '—'} | {v.unidade ?? '—'} | {v.ativo ? 'Ativo' : 'Inativo'}
                           </span>
@@ -631,6 +650,13 @@ export function AdminCentralScreen({ token, user, vehiclesInRoute, tab, onMessag
                   {editTarget.user.nome}
                 </p>
                 <div className="modal-section-title">Dados</div>
+                <label><span>E-mail</span>
+                  <input
+                    type="email"
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                  />
+                </label>
                 <label><span>Cargo</span>
                   <select value={editCargo} onChange={(e) => setEditCargo(e.target.value)}>
                     <option value="">Sem cargo</option>
@@ -666,6 +692,24 @@ export function AdminCentralScreen({ token, user, vehiclesInRoute, tab, onMessag
                   <input type="checkbox" checked={editAtivo} onChange={(e) => setEditAtivo(e.target.checked)} />
                   <span>Ativo</span>
                 </label>
+                {(() => {
+                  const veiculosVinculados = vehicles.filter(
+                    (v) => v.usuario_responsavel_id === editTarget.user.id && v.ativo,
+                  )
+                  if (editAtivo || !veiculosVinculados.length) return null
+                  return (
+                    <label className="checkbox-row">
+                      <input
+                        type="checkbox"
+                        checked={editInativarVeiculo}
+                        onChange={(e) => setEditInativarVeiculo(e.target.checked)}
+                      />
+                      <span>
+                        Inativar tambem o(s) veiculo(s) vinculado(s) ({veiculosVinculados.map((v) => v.placa).join(', ')})
+                      </span>
+                    </label>
+                  )
+                })()}
                 <div className="action-row">
                   <button className="primary-button compact" type="button" onClick={() => void handleSaveUser()} disabled={saving}>
                     {saving ? <Loader2 className="spin" /> : <Save />} <span>Salvar</span>
@@ -717,11 +761,19 @@ export function AdminCentralScreen({ token, user, vehiclesInRoute, tab, onMessag
                 </p>
                 <div className="modal-section-title">Dados</div>
                 <label><span>Responsavel</span>
-                  <select value={editVeiculoResponsavel} onChange={(e) => setEditVeiculoResponsavel(e.target.value)}>
+                  <select
+                    value={editVeiculoResponsavel}
+                    onChange={(e) => {
+                      setEditVeiculoResponsavel(e.target.value)
+                      if (!e.target.value) setEditVeiculoPrincipal(false)
+                    }}
+                  >
                     <option value="">Sem responsavel</option>
-                    {users.map((u) => (
-                      <option key={u.id} value={u.id}>{u.nome}</option>
-                    ))}
+                    {users
+                      .filter((u) => u.ativo || u.id === editTarget.vehicle.usuario_responsavel_id)
+                      .map((u) => (
+                        <option key={u.id} value={u.id}>{u.nome}{!u.ativo ? ' | Inativo' : ''}</option>
+                      ))}
                   </select>
                 </label>
                 <label><span>Disponibilidade</span>
@@ -732,6 +784,15 @@ export function AdminCentralScreen({ token, user, vehiclesInRoute, tab, onMessag
                 </label>
                 <label><span>Unidade</span>
                   <input type="text" value={editVeiculoUnidade} onChange={(e) => setEditVeiculoUnidade(e.target.value)} />
+                </label>
+                <label className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={editVeiculoPrincipal}
+                    disabled={!editVeiculoResponsavel}
+                    onChange={(e) => setEditVeiculoPrincipal(e.target.checked)}
+                  />
+                  <span>Veiculo principal do responsavel (aparece primeiro para o motorista)</span>
                 </label>
                 <label className="checkbox-row">
                   <input type="checkbox" checked={editVeiculoAtivo} onChange={(e) => setEditVeiculoAtivo(e.target.checked)} />
@@ -780,13 +841,13 @@ export function AdminCentralScreen({ token, user, vehiclesInRoute, tab, onMessag
 
       {tab === 'cadastros' ? (
         <div className="screen-stack">
-          <div className="segmented-control" aria-label="Modo de cadastro">
+          <div className="segmented-control segmented-control-grid" aria-label="Modo de cadastro">
             <button
               type="button"
               className={cadastroView === 'pendentes' ? 'active' : ''}
               onClick={() => setCadastroView('pendentes')}
             >
-              <UserPlus />
+              <Inbox />
               <span>Solicitacoes</span>
             </button>
             <button
@@ -795,12 +856,28 @@ export function AdminCentralScreen({ token, user, vehiclesInRoute, tab, onMessag
               onClick={() => setCadastroView('novo')}
             >
               <UserPlus />
-              <span>Cadastrar direto</span>
+              <span>Cadastro direto</span>
+            </button>
+            <button
+              type="button"
+              className={cadastroView === 'novo_veiculo' ? 'active' : ''}
+              onClick={() => setCadastroView('novo_veiculo')}
+            >
+              <CarFront />
+              <span>So veiculo</span>
             </button>
           </div>
 
           {cadastroView === 'novo' ? (
             <RegisterDriverScreen
+              token={token}
+              users={users}
+              onMessage={onMessage}
+              onBack={() => setCadastroView('pendentes')}
+              onCreated={() => { setCadastroView('pendentes'); void load() }}
+            />
+          ) : cadastroView === 'novo_veiculo' ? (
+            <RegisterVehicleScreen
               token={token}
               users={users}
               onMessage={onMessage}

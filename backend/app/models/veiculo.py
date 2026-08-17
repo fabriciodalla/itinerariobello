@@ -58,6 +58,10 @@ class Veiculo(UuidPkMixin, TimestampMixin, Base):
         nullable=True,
     )
     ativo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    # Entre os veiculos de um mesmo usuario responsavel, no maximo um pode ser
+    # principal (garantido por indice unico parcial na migracao). O principal
+    # aparece primeiro na selecao de partida do motorista.
+    principal: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
 
     apolice_arquivo_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     apolice_arquivo_mime_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
