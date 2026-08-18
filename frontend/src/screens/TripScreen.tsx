@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { MouseEvent, PointerEvent, ReactNode } from 'react'
-import { ArrowLeft, CarFront, CheckCircle2, Gauge, Info, Loader2, LogOut, Send } from 'lucide-react'
+import { ArrowLeft, CarFront, CheckCircle2, Gauge, Info, Loader2, LogOut, Send, X } from 'lucide-react'
 import { CameraCapture } from '../components/CameraCapture'
 import { GpsBadge } from '../components/GpsBadge'
 import { StatusPill } from '../components/StatusPill'
@@ -18,11 +18,12 @@ interface TripScreenProps {
   onChange: () => Promise<void>
   onMessage: (message: string) => void
   onLogout: () => void
+  onCloseApp: () => void
   onShowStatusChange: (show: boolean) => void
 }
 
 type StartStep = 'selecionar' | 'partida'
-export function TripScreen({ token, user, vehicles, trips, onChange, onMessage, onLogout, onShowStatusChange }: TripScreenProps) {
+export function TripScreen({ token, user, vehicles, trips, onChange, onMessage, onLogout, onCloseApp, onShowStatusChange }: TripScreenProps) {
   const [completed, setCompleted] = useState(false)
   const [arrivalTripId, setArrivalTripId] = useState<string | null>(null)
   const activeTrip = useMemo(
@@ -49,7 +50,7 @@ export function TripScreen({ token, user, vehicles, trips, onChange, onMessage, 
   }, [onShowStatusChange])
 
   if (completed) {
-    return <CompletionPanel onLogout={onLogout} onNewTrip={() => setCompleted(false)} />
+    return <CompletionPanel onLogout={onLogout} onCloseApp={onCloseApp} onNewTrip={() => setCompleted(false)} />
   }
 
   if (activeTrip) {
@@ -60,6 +61,7 @@ export function TripScreen({ token, user, vehicles, trips, onChange, onMessage, 
           vehicles={vehicles}
           onArrival={() => setArrivalTripId(activeTrip.id)}
           onLogout={onLogout}
+          onCloseApp={onCloseApp}
         />
       )
     }
@@ -378,11 +380,13 @@ function InProgressPanel({
   vehicles,
   onArrival,
   onLogout,
+  onCloseApp,
 }: {
   trip: Trip
   vehicles: Vehicle[]
   onArrival: () => void
   onLogout: () => void
+  onCloseApp: () => void
 }) {
   const vehicle = vehicles.find((item) => item.id === trip.veiculo_id)
   return (
@@ -409,7 +413,11 @@ function InProgressPanel({
         <CheckCircle2 />
         <span>Fazer chegada</span>
       </button>
-      <button className="secondary-button full" type="button" onClick={onLogout}>
+      <button className="secondary-button full" type="button" onClick={onCloseApp}>
+        <X />
+        <span>Fechar aplicativo</span>
+      </button>
+      <button className="link-button full" type="button" onClick={onLogout}>
         <LogOut />
         <span>Sair da conta</span>
       </button>
@@ -494,19 +502,31 @@ function vehicleAvailabilityLabel(vehicle: Vehicle) {
   return parts.join(' | ')
 }
 
-function CompletionPanel({ onLogout, onNewTrip }: { onLogout: () => void; onNewTrip: () => void }) {
+function CompletionPanel({
+  onLogout,
+  onCloseApp,
+  onNewTrip,
+}: {
+  onLogout: () => void
+  onCloseApp: () => void
+  onNewTrip: () => void
+}) {
   return (
     <section className="panel panel-edge-bottom completion-panel">
       <CheckCircle2 />
       <h2>Itinerario registrado</h2>
       <p>A viagem ficou pronta para o fechamento mensal.</p>
-      <button className="primary-button full" type="button" onClick={onLogout}>
-        <LogOut />
-        <span>Sair da conta</span>
+      <button className="primary-button full" type="button" onClick={onCloseApp}>
+        <X />
+        <span>Fechar aplicativo</span>
       </button>
       <button className="secondary-button full" type="button" onClick={onNewTrip}>
         <CarFront />
-        <span>Registrar outra viagem</span>
+        <span>Registrar outra viagem (outro carro)</span>
+      </button>
+      <button className="link-button full" type="button" onClick={onLogout}>
+        <LogOut />
+        <span>Sair da conta</span>
       </button>
     </section>
   )

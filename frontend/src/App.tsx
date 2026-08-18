@@ -133,6 +133,16 @@ function App() {
     setTrips([])
   }
 
+  function handleCloseApp() {
+    // Nao desloga: a sessao (cookie) continua valida, entao na proxima vez
+    // que o app for aberto o usuario entra direto, sem digitar login de novo.
+    // Navegadores/PWAs so permitem fechar via script janelas abertas por script,
+    // entao isso funciona como um "atalho" quando suportado; nos demais casos
+    // o aviso abaixo confirma que ja pode fechar manualmente com seguranca.
+    window.close()
+    setMessage('Pode fechar o aplicativo com seguranca. Na proxima vez voce entra direto, sem precisar logar novamente.')
+  }
+
   async function refreshData() {
     await loadWorkspace(token)
   }
@@ -194,6 +204,7 @@ function App() {
             onChange={refreshData}
             onMessage={setMessage}
             onLogout={handleLogout}
+            onCloseApp={handleCloseApp}
             onShowStatusChange={setShowStatusChips}
           />
         ) : supervisorTab === 'menu' ? (

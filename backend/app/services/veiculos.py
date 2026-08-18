@@ -1,9 +1,11 @@
 from datetime import date, datetime, time, timedelta, timezone
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import Select, and_, case, or_, select, update
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.config import get_settings
 from app.models.enums import StatusViagem, TipoDisponibilidadeVeiculo
 from app.models.veiculo import Veiculo
 from app.models.viagem import Viagem
@@ -62,9 +64,25 @@ def normalizar_marca_veiculo(valor: str | None) -> str | None:
     return marca.upper() if marca else None
 
 
+def _local_tz() -> ZoneInfo:
+    return ZoneInfo(get_settings().app_timezone)
+
+
+def data_referencia_atual() -> date:
+    """'Hoje' no fuso horario do negocio (America/Cuiaba por padrao).
+
+    Usar a data em UTC aqui deslocaria a janela em ~4h: uma viagem feita
+    apos as 20h no horario local ja cairia no 'dia seguinte' em UTC, fazendo
+    o veiculo aparecer bloqueado (ou liberado) no dia errado."""
+    return datetime.now(_local_tz()).date()
+
+
 def intervalo_do_dia(data_referencia: date) -> tuple[datetime, datetime]:
-    inicio = datetime.combine(data_referencia, time.min, tzinfo=timezone.utc)
-    return inicio, inicio + timedelta(days=1)
+    """Janela [inicio, fim) do dia local (America/Cuiaba) convertida para UTC,
+    ja que Viagem.partida_em e armazenado em UTC."""
+    inicio_local = datetime.combine(data_referencia, time.min, tzinfo=_local_tz())
+    fim_local = inicio_local + timedelta(days=1)
+    return inicio_local.astimezone(timezone.utc), fim_local.astimezone(timezone.utc)
 
 
 def consulta_veiculos_disponiveis_para_partida(

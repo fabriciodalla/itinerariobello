@@ -19,6 +19,7 @@ from app.models.viagem import Viagem
 from app.schemas.veiculos import VeiculoCreateRequest, VeiculoEmRotaResponse, VeiculoPatchRequest, VeiculoResponse
 from app.services.documents import apolice_subdir, delete_document_if_exists, save_document
 from app.services.veiculos import (
+    data_referencia_atual,
     listar_veiculos_disponiveis_para_partida,
     listar_veiculos_em_rota,
     marcar_como_principal,
@@ -84,7 +85,7 @@ def list_vehicles(
     usuario: Annotated[Usuario, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ) -> list[VeiculoResponse]:
-    hoje = datetime.now(timezone.utc).date()
+    hoje = data_referencia_atual()
     veiculos = listar_veiculos_disponiveis_para_partida(db, usuario.id, hoje)
     return [to_response(veiculo, usuario.id) for veiculo in veiculos]
 

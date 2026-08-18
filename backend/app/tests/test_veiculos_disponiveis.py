@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 import pytest
 
@@ -91,6 +91,63 @@ def test_veiculos_disponiveis_ocultam_proprio_de_outro_usuario_e_bloqueiam_viage
         assert empresa_livre.id in ids_disponiveis
         assert proprio_de_outro.id not in ids_disponiveis
         assert empresa_bloqueado.id not in ids_disponiveis
+    finally:
+        db.rollback()
+        db.close()
+
+
+@pytest.mark.risco(
+    peso=50,
+    criticidade="alta",
+    area="viagem",
+    referencias=("RF-004", "RN-018"),
+)
+def test_veiculos_disponiveis_bloqueio_do_dia_usa_fuso_horario_local():
+    """O bloqueio de reuso 'no mesmo dia' (RN-018) deve considerar o dia no
+    fuso horario do negocio (America/Cuiaba, UTC-4), nao o dia em UTC.
+
+    Uma viagem feita as 22h de 14/05 no horario de Cuiaba vira 02h de 15/05
+    em UTC — em UTC ela "parece" ter acontecido no dia de referencia
+    (15/05), mas no horario local foi no dia anterior e por isso nao pode
+    bloquear o veiculo para uma nova partida no dia local seguinte."""
+    db = SessionLocal()
+    hoje_local = date(2026, 5, 15)
+
+    try:
+        usuario = Usuario(
+            nome="Usuario Fuso Teste",
+            email="usuario.fuso.teste@bello.local",
+            senha_hash="hash",
+            perfil=PerfilUsuario.motorista,
+        )
+        db.add(usuario)
+        db.flush()
+
+        veiculo = Veiculo(
+            placa="FFF5F55",
+            modelo="Modelo Fuso",
+            tipo=TipoVeiculo.proprio,
+            tipo_disponibilidade=TipoDisponibilidadeVeiculo.fixo,
+            usuario_responsavel_id=usuario.id,
+        )
+        db.add(veiculo)
+        db.flush()
+
+        db.add(
+            Viagem(
+                usuario_id=usuario.id,
+                veiculo_id=veiculo.id,
+                status=StatusViagem.concluida,
+                km_inicial=100,
+                partida_em=datetime(2026, 5, 15, 2, 0, tzinfo=timezone.utc),
+            )
+        )
+        db.flush()
+
+        disponiveis = listar_veiculos_disponiveis_para_partida(db, usuario.id, hoje_local)
+        ids_disponiveis = [veiculo_disponivel.id for veiculo_disponivel in disponiveis]
+
+        assert veiculo.id in ids_disponiveis
     finally:
         db.rollback()
         db.close()

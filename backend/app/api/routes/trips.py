@@ -46,7 +46,7 @@ from app.schemas.trips import (
 )
 from app.services.geocoding import normalizar_endereco, reverse_geocode
 from app.services.photos import save_trip_photo
-from app.services.veiculos import listar_veiculos_disponiveis_para_partida
+from app.services.veiculos import data_referencia_atual, listar_veiculos_disponiveis_para_partida
 
 router = APIRouter(prefix="/trips", tags=["trips"])
 photos_router = APIRouter(prefix="/photos", tags=["photos"])
@@ -309,7 +309,7 @@ def start_trip(
         raise validation_error("Foto do hodometro inicial e obrigatoria.")
 
     data = parse_json_form(payload, TripStartPayload)
-    hoje = datetime.now(timezone.utc).date()
+    hoje = data_referencia_atual()
     veiculos_permitidos = listar_veiculos_disponiveis_para_partida(db, usuario.id, hoje)
     veiculo = next((item for item in veiculos_permitidos if item.id == data.veiculo_id), None)
     if veiculo is None:

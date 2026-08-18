@@ -148,7 +148,21 @@ export function RegisterVehicleScreen({ token, users, onMessage, onBack, onCreat
           </label>
           <label>
             <span>Tipo do veiculo</span>
-            <select value={form.tipoVeiculo} onChange={(e) => update('tipoVeiculo', e.target.value as TipoVeiculo)}>
+            <select
+              value={form.tipoVeiculo}
+              onChange={(e) => {
+                const tipoVeiculo = e.target.value as TipoVeiculo
+                // veiculo proprio costuma ser de uso exclusivo do motorista (fixo);
+                // alugado/empresa costumam ser compartilhados entre motoristas
+                // (alocado) — mesma regra que o backend aplica quando a
+                // disponibilidade nao e informada explicitamente
+                setForm((current) => ({
+                  ...current,
+                  tipoVeiculo,
+                  tipoDisponibilidade: tipoVeiculo === 'proprio' ? 'fixo' : 'alocado',
+                }))
+              }}
+            >
               <option value="proprio">Proprio</option>
               <option value="alugado">Alugado</option>
               <option value="empresa">Empresa</option>

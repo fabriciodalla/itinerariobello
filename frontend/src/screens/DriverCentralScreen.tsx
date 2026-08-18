@@ -14,6 +14,7 @@ interface DriverCentralScreenProps {
   onChange: () => Promise<void>
   onMessage: (message: string) => void
   onLogout: () => void
+  onCloseApp: () => void
   onShowStatusChange: (show: boolean) => void
 }
 
@@ -26,6 +27,7 @@ export function DriverCentralScreen({
   onChange,
   onMessage,
   onLogout,
+  onCloseApp,
   onShowStatusChange,
 }: DriverCentralScreenProps) {
   return (
@@ -41,6 +43,7 @@ export function DriverCentralScreen({
           onChange={onChange}
           onMessage={onMessage}
           onLogout={onLogout}
+          onCloseApp={onCloseApp}
           onShowStatusChange={onShowStatusChange}
         />
       </div>
