@@ -87,6 +87,7 @@ export function AdminCentralScreen({ token, user, vehiclesInRoute, tab, onMessag
 
   const [novaSenha, setNovaSenha] = useState('')
   const [confirmacao, setConfirmacao] = useState('')
+  const [editNome, setEditNome] = useState('')
   const [editEmail, setEditEmail] = useState('')
   const [editCargo, setEditCargo] = useState('')
   const [editSuperiorId, setEditSuperiorId] = useState('')
@@ -123,6 +124,8 @@ export function AdminCentralScreen({ token, user, vehiclesInRoute, tab, onMessag
   }, [load])
 
   const hierarchy = useMemo(() => buildHierarchy(users), [users])
+
+  const usersById = useMemo(() => new Map(users.map((u) => [u.id, u])), [users])
 
   const cargos = useMemo(() => {
     const set = new Set<string>()
@@ -203,13 +206,18 @@ export function AdminCentralScreen({ token, user, vehiclesInRoute, tab, onMessag
     }
     if (!search.trim()) return list
     const term = search.toLowerCase()
-    return list.filter(
-      (v) =>
+    return list.filter((v) => {
+      const responsavelNomeCompleto = v.usuario_responsavel_id
+        ? (usersById.get(v.usuario_responsavel_id)?.nome ?? v.responsavel_nome ?? '')
+        : ''
+      return (
         v.placa.toLowerCase().includes(term) ||
         v.modelo.toLowerCase().includes(term) ||
-        (v.unidade ?? '').toLowerCase().includes(term),
-    )
-  }, [vehicles, search, showInactive])
+        (v.unidade ?? '').toLowerCase().includes(term) ||
+        responsavelNomeCompleto.toLowerCase().includes(term)
+      )
+    })
+  }, [vehicles, search, showInactive, usersById])
 
   function closeModal() {
     setEditTarget(null)
@@ -230,6 +238,7 @@ export function AdminCentralScreen({ token, user, vehiclesInRoute, tab, onMessag
   }
 
   function openEditUser(u: User) {
+    setEditNome(u.nome)
     setEditEmail(u.email)
     setEditCargo(u.cargo ?? '')
     setEditSuperiorId(u.superior_id ?? '')
@@ -312,10 +321,12 @@ export function AdminCentralScreen({ token, user, vehiclesInRoute, tab, onMessag
 
   async function handleSaveUser() {
     if (!editTarget || editTarget.type !== 'user') return
+    if (!editNome.trim()) { onMessage('Informe o nome do usuario.'); return }
     if (!editEmail.trim()) { onMessage('Informe o e-mail do usuario.'); return }
     setSaving(true)
     try {
       await api.patchUser(token, editTarget.user.id, {
+        nome: editNome.trim(),
         email: editEmail.trim(),
         cargo: editCargo.trim() || null,
         superior_id: editSuperiorId || null,
@@ -480,7 +491,7 @@ export function AdminCentralScreen({ token, user, vehiclesInRoute, tab, onMessag
               <Search />
               <input
                 type="text"
-                placeholder="Buscar por placa, modelo ou unidade..."
+                placeholder="Buscar por placa, modelo, unidade ou motorista..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -522,7 +533,7 @@ export function AdminCentralScreen({ token, user, vehiclesInRoute, tab, onMessag
                         <div className="user-row-info">
                           <strong>{v.placa} | {v.modelo}{v.principal ? ' | Principal' : ''}</strong>
                           <span className="user-row-email">
-                            {v.responsavel_nome ?? '—'} | {v.unidade ?? '—'} | {v.ativo ? 'Ativo' : 'Inativo'}
+                            {(v.usuario_responsavel_id && usersById.get(v.usuario_responsavel_id)?.nome) || v.responsavel_nome || '—'} | {v.unidade ?? '—'} | {v.ativo ? 'Ativo' : 'Inativo'}
                           </span>
                         </div>
                         <div className="user-row-actions">
@@ -646,10 +657,14 @@ export function AdminCentralScreen({ token, user, vehiclesInRoute, tab, onMessag
                   <h3>Editar usuario</h3>
                   <button className="icon-button" type="button" onClick={closeModal}><X /></button>
                 </div>
-                <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                  {editTarget.user.nome}
-                </p>
                 <div className="modal-section-title">Dados</div>
+                <label><span>Nome</span>
+                  <input
+                    type="text"
+                    value={editNome}
+                    onChange={(e) => setEditNome(e.target.value.toUpperCase())}
+                  />
+                </label>
                 <label><span>E-mail</span>
                   <input
                     type="email"

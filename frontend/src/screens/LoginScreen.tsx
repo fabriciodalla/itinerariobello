@@ -374,7 +374,7 @@ export function LoginScreen({
           <form className="signup-form" onSubmit={(event) => void submitSignup(event)}>
             <label>
               <span>Nome</span>
-              <input value={signup.nome} onChange={(event) => updateSignup('nome', event.target.value)} />
+              <input value={signup.nome} onChange={(event) => updateSignup('nome', event.target.value.toUpperCase())} />
             </label>
             <label>
               <span>E-mail</span>
@@ -411,7 +411,7 @@ export function LoginScreen({
                 <span>Modelo</span>
                 <input
                   value={signup.veiculo_modelo}
-                  onChange={(event) => updateSignup('veiculo_modelo', event.target.value)}
+                  onChange={(event) => updateSignup('veiculo_modelo', event.target.value.toUpperCase())}
                 />
               </label>
             </div>
@@ -419,7 +419,7 @@ export function LoginScreen({
               <span>Marca</span>
               <input
                 value={signup.veiculo_marca}
-                onChange={(event) => updateSignup('veiculo_marca', event.target.value)}
+                onChange={(event) => updateSignup('veiculo_marca', event.target.value.toUpperCase())}
               />
             </label>
             <label>

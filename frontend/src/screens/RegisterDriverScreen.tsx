@@ -145,7 +145,7 @@ export function RegisterDriverScreen({ token, users, onMessage, onBack, onCreate
         <div className="form-section-title">Dados de acesso</div>
         <label>
           <span>Nome</span>
-          <input value={form.nome} onChange={(e) => update('nome', e.target.value)} />
+          <input value={form.nome} onChange={(e) => update('nome', e.target.value.toUpperCase())} />
         </label>
         <label>
           <span>E-mail</span>
@@ -204,13 +204,13 @@ export function RegisterDriverScreen({ token, users, onMessage, onBack, onCreate
           </label>
           <label>
             <span>Modelo</span>
-            <input value={form.veiculoModelo} onChange={(e) => update('veiculoModelo', e.target.value)} />
+            <input value={form.veiculoModelo} onChange={(e) => update('veiculoModelo', e.target.value.toUpperCase())} />
           </label>
         </div>
         <div className="signup-grid">
           <label>
             <span>Marca</span>
-            <input value={form.veiculoMarca} onChange={(e) => update('veiculoMarca', e.target.value)} />
+            <input value={form.veiculoMarca} onChange={(e) => update('veiculoMarca', e.target.value.toUpperCase())} />
           </label>
           <label>
             <span>Tipo do veiculo</span>
