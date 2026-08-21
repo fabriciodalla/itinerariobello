@@ -192,8 +192,32 @@ Mostrar que a partida foi registrada e permitir que o usuário escolha entre sai
 
 - Aparece após a partida ser registrada com sucesso.
 - Não abre a chegada automaticamente sem ação do usuário.
-- Permite retomar a chegada enquanto houver viagem `em_andamento` do usuário autenticado.
+- Permite retomar a chegada enquanto houver viagem `em_andamento` do usuário autenticado, iniciada no mesmo dia local.
 - Mostra placa e modelo do veículo usado na viagem, não apenas o identificador interno.
+- Quando a viagem `em_andamento` foi iniciada em um dia local anterior ao atual, esta tela não aparece: o app abre direto a Tela Fechamento Tardio (ver 7.1).
+
+## 7.1 Tela Fechamento Tardio
+
+### Objetivo
+
+Forçar o motorista a finalizar, com motivo, uma viagem que ficou `em_andamento` além do dia local da partida, antes de permitir o início de uma nova viagem (RN-034, RN-035).
+
+### Elementos
+
+- Aviso de que a viagem não foi finalizada no mesmo dia e precisa ser concluída antes de iniciar uma nova.
+- Resumo do veículo, km inicial e data/hora da partida.
+- Todos os campos da Tela Chegada: km final, foto do hodômetro, GPS e rota utilizada.
+- Campo obrigatório de texto livre com o motivo do fechamento tardio.
+- Botão de finalizar viagem atrasada.
+- Botão para sair do aplicativo ou encerrar sessão, sem finalizar a viagem.
+
+### Critérios De Aceite
+
+- Aparece sempre que o app é aberto e existe viagem `em_andamento` do usuário autenticado com partida em dia local anterior ao atual.
+- Bloqueia o mesmo conjunto de campos que a Tela Chegada (km final, foto, GPS, rota) e adicionalmente exige o motivo do atraso.
+- Não permite iniciar nova viagem enquanto esta pendência não for resolvida; a tentativa retorna erro de conflito (409).
+- Ao finalizar, marca a viagem como fechamento tardio, com motivo registrado, e libera o início de uma nova viagem no dia atual.
+- O superior imediato deve conseguir ver essa sinalização na Tela Fechamento Mensal e no relatório mensal (ver seção 11).
 
 ## 8. Tela Chegada
 
@@ -282,6 +306,9 @@ Para administradores, a tela também permite consultar o relatório mensal por v
 - Na visão por veículo, lista de todos os itinerários do veículo no mês e destaca o vendedor que executou cada itinerário.
 - Detalhes de cada viagem: km, fotos, GPS, endereço resolvido ou indicador `Endereco nao resolvido`, rota, veículo, data e status.
 - Evidências de cada viagem disponíveis diretamente no item do relatório: foto inicial, foto final, GPS e endereço de partida e GPS e endereço de chegada.
+- Sinalização visual (selo/etiqueta) quando a viagem foi finalizada em dia diferente do de partida, com o motivo do fechamento tardio visível ao expandir o item.
+- Sinalização visual quando a viagem ainda está `em_andamento` e ficou pendente de fechamento por atraso, mesmo antes de o motorista resolvê-la.
+- Resumo no topo da tela alertando quando existem viagens com fechamento tardio ou pendente no período consultado.
 - Exportação para relatório, quando permitido.
 
 ### Critérios De Aceite
@@ -293,6 +320,7 @@ Para administradores, a tela também permite consultar o relatório mensal por v
 - Fechamento mensal `fechado` registra responsável, data/hora, status e observação quando informada.
 - O fechamento mensal é feito por motorista individual, não por equipe inteira.
 - Administrador consegue selecionar um veículo e exportar PDF focado no veículo, com vendedor por itinerário e fotos quando disponíveis.
+- Viagem finalizada em dia diferente do de partida (fechamento tardio) e viagem `em_andamento` pendente de fechamento por atraso aparecem sinalizadas tanto na lista de viagens quanto na exportação em PDF (RN-034, RN-035).
 
 ## 12. Tela Cadastros
 
@@ -349,6 +377,9 @@ Disponível somente para usuários com perfil `motorista`.
 ```txt
 Login
   -> Em rota
+  -> Se existir viagem em_andamento com partida em dia local anterior:
+       -> Fechamento tardio (obrigatório, com motivo)
+       -> Viagem atrasada finalizada / sinalizada ao superior
   -> Selecionar carro
   -> Partida
   -> Viagem em andamento

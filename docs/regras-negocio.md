@@ -7,6 +7,13 @@
 | `em_andamento` | Partida registrada e chegada pendente |
 | `concluida` | Viagem completa e disponível para relatório/fechamento mensal |
 
+Independente do status acima, a viagem carrega duas sinalizações de fechamento tardio (RN-034, RN-035), calculadas a partir da data local (fuso do negócio) de partida e chegada:
+
+| Sinalização | Quando aparece | Significado |
+|---|---|---|
+| `pendente_fechamento_tardio` | Viagem `em_andamento` cuja partida foi em um dia local anterior ao atual | Viagem atrasada, ainda aguardando o motorista finalizar com motivo |
+| `fechamento_tardio` | Viagem `concluida` cuja chegada foi em dia local diferente do dia local da partida | Viagem foi finalizada em outro dia; `motivo_fechamento_tardio` traz a justificativa do motorista |
+
 ## 2. Status Do Fechamento Mensal
 
 | Status | Significado |
@@ -53,6 +60,8 @@ O fechamento mensal é sempre por motorista individual, considerando as viagens 
 | RN-031 | Responsável pelo fechamento visualiza viagens, relatório mensal e fechamentos de toda a cadeia de subordinados (diretos e indiretos, ex.: gerente vê coordenador regional e coordenador local abaixo dele); ele também vê sempre suas próprias viagens, quando existirem | Backend |
 | RN-032 | Fechar o consolidado mensal de um motorista continua exigindo ser superior imediato dele (RN-020); a visão ampliada de RN-031 vale só para consulta/exportação, não para a ação de fechar | Backend |
 | RN-033 | Um usuário pode ter mais de um veículo responsável; no máximo um deles pode ser marcado `principal` por vez (banco reforça com índice único). Na seleção de partida, a ordem é: veículo principal do usuário, depois os demais veículos próprios dele, depois os veículos alocados da empresa | Backend |
+| RN-034 | Viagem é estritamente diária: se ficar `em_andamento` além do dia local da partida, bloqueia o início de qualquer nova viagem do mesmo motorista até que ele finalize a pendente informando o motivo do fechamento tardio | Backend e app |
+| RN-035 | Viagem finalizada em dia local diferente do dia local da partida é marcada como fechamento tardio, com motivo obrigatório; essa sinalização fica visível ao superior imediato tanto no relatório mensal quanto na tela de fechamento, mesmo enquanto a viagem ainda estiver `em_andamento` e pendente | Backend e app |
 
 ## 4. Fluxo De Validação Da Partida
 
@@ -62,8 +71,9 @@ O fechamento mensal é sempre por motorista individual, considerando as viagens 
 4. App captura latitude e longitude.
 5. App ou backend resolve endereço aproximado quando houver serviço disponível.
 6. Backend valida dados obrigatórios.
-7. Backend valida se o veículo selecionado é permitido para o usuário e se não há itinerário iniciado no dia para o veículo.
-8. Backend cria viagem com status `em_andamento`.
+7. Backend valida se o motorista não tem viagem `em_andamento` pendente de fechamento tardio (RN-034); se tiver, rejeita a partida com conflito até que ela seja finalizada.
+8. Backend valida se o veículo selecionado é permitido para o usuário e se não há itinerário iniciado no dia para o veículo.
+9. Backend cria viagem com status `em_andamento`.
 
 ## 5. Fluxo De Validação Da Chegada
 
@@ -74,7 +84,8 @@ O fechamento mensal é sempre por motorista individual, considerando as viagens 
 5. App ou backend resolve endereço aproximado quando houver serviço disponível.
 6. Usuário informa rota utilizada.
 7. Backend valida km final maior ou igual ao km inicial.
-8. Backend altera status para `concluida`, indicando que a viagem está pronta para o fechamento mensal.
+8. Backend verifica se a data local da chegada é diferente da data local da partida (RN-035); se for, exige motivo do fechamento tardio e o grava na viagem.
+9. Backend altera status para `concluida`, indicando que a viagem está pronta para o fechamento mensal.
 
 ## 6. Fluxo De Fechamento Mensal
 
@@ -128,7 +139,8 @@ O relatório mensal deve conter:
 - status do fechamento mensal;
 - superior responsável pelo fechamento;
 - data e hora do fechamento;
-- observação do fechamento, quando informada.
+- observação do fechamento, quando informada;
+- sinalização de fechamento tardio (`fechamento_tardio`) ou de pendência de fechamento tardio (`pendente_fechamento_tardio`) e o motivo informado pelo motorista (`motivo_fechamento_tardio`), quando aplicável (RN-034, RN-035).
 
 Cada item retornado pela consulta do relatório mensal deve entregar diretamente as evidências da viagem, sem exigir chamadas adicionais para montar o fechamento:
 

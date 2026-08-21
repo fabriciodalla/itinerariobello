@@ -224,6 +224,9 @@ Cada item de `GET /trips` e `GET /trips/{id}` deve trazer dados suficientes para
   "rota_utilizada": null,
   "partida_em": "2026-05-01T08:00:00Z",
   "chegada_em": null,
+  "motivo_fechamento_tardio": null,
+  "fechamento_tardio": false,
+  "pendente_fechamento_tardio": false,
   "foto_hodometro_inicial": {
     "id": "uuid-da-foto-inicial",
     "viagem_id": "uuid-da-viagem",
@@ -344,6 +347,8 @@ Conteúdo de `payload`:
 
 `endereco` é opcional no payload. Se não vier informado, o backend pode tentar resolver por geocodificação reversa quando o serviço estiver habilitado. Se `foto_hodometro` não for enviado, a API deve rejeitar a partida.
 
+Antes de criar a viagem, a API valida se o motorista já tem alguma viagem `em_andamento` com partida em um dia local anterior ao atual (RN-034). Se tiver, `POST /trips/start` retorna `409 Conflict` e a partida só é aceita depois que essa viagem pendente for finalizada via `POST /trips/{id}/finish` com o motivo do fechamento tardio.
+
 ## 11. Contrato Para Chegada
 
 Para o protótipo, a chegada também deve ser enviada em `multipart/form-data`, garantindo foto final, GPS, rota e km final no mesmo request.
@@ -366,11 +371,14 @@ Conteúdo de `payload`:
     "longitude": -46.634,
     "precisao_metros": 10.0,
     "endereco": "Avenida Paulista, Sao Paulo - SP, Brasil"
-  }
+  },
+  "motivo_fechamento_tardio": null
 }
 ```
 
 `endereco` é opcional no payload. Se não vier informado, o backend pode tentar resolver por geocodificação reversa quando o serviço estiver habilitado. Se `foto_hodometro` não for enviado, a API deve rejeitar a chegada.
+
+`motivo_fechamento_tardio` é opcional apenas quando a chegada ocorre no mesmo dia local da partida. Quando o dia local da chegada é diferente do dia local da partida (RN-035), o campo é obrigatório e não pode ficar em branco; a API retorna `422` se ele faltar nesse caso. Quando aceito, a viagem concluída passa a expor `fechamento_tardio: true` e `motivo_fechamento_tardio` com o texto informado.
 
 ## 12. Contrato Para Relatório Mensal
 
@@ -413,6 +421,9 @@ Item de resposta:
   "km_final": 12410.8,
   "km_rodado": 65.2,
   "rota_utilizada": "Cliente A -> Cliente B",
+  "motivo_fechamento_tardio": null,
+  "fechamento_tardio": false,
+  "pendente_fechamento_tardio": false,
   "foto_hodometro_inicial": {
     "id": "uuid-da-foto-inicial",
     "viagem_id": "uuid-da-viagem",
@@ -465,6 +476,8 @@ Item de resposta:
 ```
 
 O item do relatório mensal deve entregar as evidências diretamente no JSON. Fotos devem trazer metadados e `download_url`; GPS deve trazer coordenadas, `endereco`, `endereco_resolvido` e `endereco_exibicao` de partida e chegada. Na exportação mensal em PDF, os locais de saída e chegada usam o endereço resolvido quando disponível; quando indisponível, permanecem sem endereço textual e as coordenadas continuam como evidência.
+
+`fechamento_tardio`, `pendente_fechamento_tardio` e `motivo_fechamento_tardio` sinalizam o fechamento fora do dia da partida (RN-034, RN-035): `pendente_fechamento_tardio` fica `true` enquanto a viagem estiver `em_andamento` com partida em dia local anterior ao atual, e `fechamento_tardio` fica `true` quando a viagem `concluida` foi fechada em dia local diferente do dia local da partida, sempre acompanhada do motivo em `motivo_fechamento_tardio`. Na exportação em PDF, viagens com fechamento tardio recebem o prefixo `[FECHAMENTO TARDIO]` na coluna de atividade realizada.
 
 Quando `veiculo_id` é informado, apenas administradores podem consultar/exportar. A exportação em PDF passa a focar no veículo selecionado e a primeira coluna da tabela identifica o vendedor responsável por cada itinerário do dia. As fotos do hodômetro permanecem incluídas quando os arquivos estiverem disponíveis.
 

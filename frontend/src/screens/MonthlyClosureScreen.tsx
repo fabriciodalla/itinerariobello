@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
+  AlertTriangle,
   Calendar,
   CarFront,
   Check,
@@ -96,6 +97,7 @@ export function MonthlyClosureScreen({ token, user, onMessage }: MonthlyClosureS
     ? closures.find((item) => item.motorista_id === selectedMotoristaId) ?? null
     : null
   const kmTotal = visibleReports.reduce((total, item) => total + numberValue(item.km_rodado), 0)
+  const lateFlaggedReports = visibleReports.filter((item) => item.fechamento_tardio || item.pendente_fechamento_tardio)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -356,6 +358,19 @@ export function MonthlyClosureScreen({ token, user, onMessage }: MonthlyClosureS
         )}
       </div>
 
+      {lateFlaggedReports.length ? (
+        <div className="info-card warning">
+          <AlertTriangle aria-hidden="true" />
+          <div>
+            <strong>Fechamentos tardios pendentes de atencao</strong>
+            <p>
+              {lateFlaggedReports.length} viagem(ns) foram finalizadas em outro dia ou ainda aguardam fechamento pelo
+              motorista. Confira o motivo informado dentro de cada viagem sinalizada abaixo.
+            </p>
+          </div>
+        </div>
+      ) : null}
+
       <div className="action-row">
         <button className="secondary-button" type="button" onClick={() => void load()} disabled={loading}>
           {loading ? <Loader2 className="spin" /> : <Calendar />}
@@ -446,6 +461,8 @@ function TripReportCard({
         </div>
         <div className="list-card-actions">
           <StatusPill status={item.status} />
+          {item.fechamento_tardio ? <StatusPill status="fechamento_tardio" /> : null}
+          {item.pendente_fechamento_tardio ? <StatusPill status="pendente_tardio" /> : null}
           {canEditThis ? (
             <button type="button" className="icon-button" title="Editar viagem" onClick={onStartEdit}>
               <Edit2 size={15} />
@@ -521,6 +538,16 @@ function TripReportCard({
               <span>{item.rota_utilizada || 'Rota pendente'}</span>
             </div>
           )}
+
+          {item.motivo_fechamento_tardio ? (
+            <div className="info-card warning">
+              <AlertTriangle aria-hidden="true" />
+              <div>
+                <strong>Motivo do fechamento tardio</strong>
+                <p>{item.motivo_fechamento_tardio}</p>
+              </div>
+            </div>
+          ) : null}
 
           <div className="evidence-row">
             {item.foto_hodometro_inicial ? (

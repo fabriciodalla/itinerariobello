@@ -41,6 +41,7 @@ class Viagem(UuidPkMixin, TimestampMixin, Base):
     km_final: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     km_rodado: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     rota_utilizada: Mapped[str | None] = mapped_column(Text, nullable=True)
+    motivo_fechamento_tardio: Mapped[str | None] = mapped_column(Text, nullable=True)
     partida_em: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

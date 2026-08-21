@@ -116,6 +116,7 @@ Devem existir testes para:
 - cenario de geocodificacao indisponivel validando `endereco = null`, `endereco_resolvido = false` e texto `Endereco nao resolvido` para exibicao/exportacao.
 - endpoint de consulta de GPS por viagem.
 - endpoint de consulta de veículos em rota com veículo, motorista e autenticação obrigatória.
+- fechamento tardio: exigência de motivo quando a chegada ocorre em dia local diferente do da partida, bloqueio de nova partida enquanto houver viagem `em_andamento` atrasada, e sinalização (`fechamento_tardio`/`pendente_fechamento_tardio`) visível ao superior no relatório mensal.
 
 ## 7. Estrutura Atual
 
@@ -131,6 +132,7 @@ backend/
       test_signup_requests.py
       test_trips_start.py
       test_trips_finish.py
+      test_trips_fechamento_tardio.py
       test_approvals.py
       test_permissions.py
       test_photos.py

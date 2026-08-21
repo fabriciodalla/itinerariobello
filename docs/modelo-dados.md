@@ -95,12 +95,15 @@ Regras de disponibilidade:
 | `km_final` | Decimal | Não | Obrigatório para chegada |
 | `km_rodado` | Decimal | Não | Calculado como `km_final - km_inicial` |
 | `rota_utilizada` | Texto | Não | Obrigatório antes de entrar no fechamento mensal |
+| `motivo_fechamento_tardio` | Texto | Depende | Obrigatório quando a viagem é finalizada em dia local diferente do dia local da partida (RN-035); nulo quando finalizada no mesmo dia |
 | `partida_em` | Data/hora | Sim | Definido pelo backend |
 | `chegada_em` | Data/hora | Não | Definido pelo backend |
 | `criado_em` | Data/hora | Sim | Auditoria |
 | `atualizado_em` | Data/hora | Sim | Auditoria |
 
 Viagens com `status = em_andamento` alimentam a tela inicial `Em rota`, junto dos dados do veículo e do motorista vinculado.
+
+Além dos campos persistidos, a API expõe duas sinalizações calculadas (não são colunas próprias, ver `docs/regras-negocio.md`): `pendente_fechamento_tardio` (viagem `em_andamento` com partida em dia local anterior ao atual) e `fechamento_tardio` (viagem `concluida` finalizada em dia local diferente do dia local da partida). Enquanto `pendente_fechamento_tardio` for verdadeiro para alguma viagem do motorista, o backend bloqueia o início de nova viagem dele (RN-034).
 
 ## 6. FotoHodometro
 

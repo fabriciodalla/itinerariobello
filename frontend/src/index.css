@@ -1024,6 +1024,15 @@ textarea:focus {
   line-height: 1.4;
 }
 
+.info-card.warning {
+  background: var(--warning-soft);
+}
+
+.info-card.warning svg,
+.info-card.warning strong {
+  color: var(--warning);
+}
+
 .gradient-button {
   min-height: 58px;
   border-radius: 16px;
@@ -1913,7 +1922,9 @@ textarea:focus {
 }
 
 .status-supervisor,
-.status-rejeitada {
+.status-rejeitada,
+.status-fechamento_tardio,
+.status-pendente_tardio {
   color: var(--warning);
   background: var(--warning-soft);
 }

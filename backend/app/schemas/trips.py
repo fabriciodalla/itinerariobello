@@ -35,6 +35,15 @@ class TripFinishPayload(BaseModel):
     km_final: Decimal = Field(ge=0)
     rota_utilizada: str = Field(min_length=1)
     gps: GPSPayload
+    motivo_fechamento_tardio: str | None = Field(default=None, max_length=2000)
+
+    @field_validator("motivo_fechamento_tardio")
+    @classmethod
+    def limpar_motivo(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        motivo = value.strip()
+        return motivo or None
 
 
 class TripPatchPayload(BaseModel):
@@ -78,6 +87,9 @@ class TripResponse(BaseModel):
     rota_utilizada: str | None = None
     partida_em: datetime
     chegada_em: datetime | None = None
+    motivo_fechamento_tardio: str | None = None
+    fechamento_tardio: bool = False
+    pendente_fechamento_tardio: bool = False
     foto_hodometro_inicial: ReportPhotoEvidenceResponse | None = None
     foto_hodometro_final: ReportPhotoEvidenceResponse | None = None
 
@@ -118,6 +130,9 @@ class ReportItemResponse(BaseModel):
     km_final: Decimal | None
     km_rodado: Decimal | None
     rota_utilizada: str | None
+    motivo_fechamento_tardio: str | None = None
+    fechamento_tardio: bool = False
+    pendente_fechamento_tardio: bool = False
     foto_hodometro_inicial: ReportPhotoEvidenceResponse | None = None
     foto_hodometro_final: ReportPhotoEvidenceResponse | None = None
     gps_partida: GPSResponse | None = None

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { MouseEvent, PointerEvent, ReactNode } from 'react'
-import { ArrowLeft, CarFront, CheckCircle2, Gauge, Info, Loader2, LogOut, Send, X } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, CarFront, CheckCircle2, Gauge, Info, Loader2, LogOut, Send, X } from 'lucide-react'
 import { CameraCapture } from '../components/CameraCapture'
 import { GpsBadge } from '../components/GpsBadge'
 import { StatusPill } from '../components/StatusPill'
@@ -25,35 +25,63 @@ interface TripScreenProps {
 type StartStep = 'selecionar' | 'partida'
 export function TripScreen({ token, user, vehicles, trips, onChange, onMessage, onLogout, onCloseApp, onShowStatusChange }: TripScreenProps) {
   const [completed, setCompleted] = useState(false)
+  const [completedLate, setCompletedLate] = useState(false)
   const [arrivalTripId, setArrivalTripId] = useState<string | null>(null)
   const activeTrip = useMemo(
     () => trips.find((trip) => trip.status === 'em_andamento' && trip.usuario_id === user.id) ?? null,
     [trips, user.id],
   )
+  const isLateTrip = Boolean(activeTrip?.pendente_fechamento_tardio)
   const showingArrival = Boolean(activeTrip && arrivalTripId === activeTrip.id)
 
   useEffect(() => {
-    if (completed || !activeTrip) {
+    if (completed || completedLate || !activeTrip) {
       return
     }
-    onShowStatusChange(showingArrival)
-  }, [completed, activeTrip, showingArrival, onShowStatusChange])
+    onShowStatusChange(isLateTrip || showingArrival)
+  }, [completed, completedLate, activeTrip, isLateTrip, showingArrival, onShowStatusChange])
 
   useEffect(() => {
-    if (completed) {
+    if (completed || completedLate) {
       onShowStatusChange(false)
     }
-  }, [completed, onShowStatusChange])
+  }, [completed, completedLate, onShowStatusChange])
 
   useEffect(() => {
     return () => onShowStatusChange(false)
   }, [onShowStatusChange])
+
+  if (completedLate) {
+    return (
+      <CompletionPanel
+        onLogout={onLogout}
+        onCloseApp={onCloseApp}
+        onNewTrip={() => setCompletedLate(false)}
+        lateClosure
+      />
+    )
+  }
 
   if (completed) {
     return <CompletionPanel onLogout={onLogout} onCloseApp={onCloseApp} onNewTrip={() => setCompleted(false)} />
   }
 
   if (activeTrip) {
+    if (isLateTrip) {
+      return (
+        <LateClosureForm
+          token={token}
+          trip={activeTrip}
+          vehicles={vehicles}
+          onChange={onChange}
+          onMessage={onMessage}
+          onFinished={() => setCompletedLate(true)}
+          onLogout={onLogout}
+          onCloseApp={onCloseApp}
+        />
+      )
+    }
+
     if (!showingArrival) {
       return (
         <InProgressPanel
@@ -375,6 +403,147 @@ function ArrivalForm({
   )
 }
 
+function LateClosureForm({
+  token,
+  trip,
+  vehicles,
+  onChange,
+  onMessage,
+  onFinished,
+  onLogout,
+  onCloseApp,
+}: {
+  token: string
+  trip: Trip
+  vehicles: Vehicle[]
+  onChange: () => Promise<void>
+  onMessage: (message: string) => void
+  onFinished: () => void
+  onLogout: () => void
+  onCloseApp: () => void
+}) {
+  const [kmFinal, setKmFinal] = useState('')
+  const [rotaUtilizada, setRotaUtilizada] = useState('')
+  const [motivo, setMotivo] = useState('')
+  const [photo, setPhoto] = useState<File | null>(null)
+  const [gps, setGps] = useState<GpsPayload | null>(null)
+  const [saving, setSaving] = useState(false)
+  const vehicle = vehicles.find((item) => item.id === trip.veiculo_id)
+  const vehicleLabel = tripVehicleLabel(trip, vehicle)
+  const kmFinalNumber = Number(kmFinal)
+  const kmInicial = numberValue(trip.km_inicial)
+  const hasValidKmFinal = kmFinal.trim() !== '' && Number.isFinite(kmFinalNumber) && kmFinalNumber >= kmInicial
+  const missingFields = [
+    !hasValidKmFinal ? 'km final maior ou igual ao inicial' : '',
+    !rotaUtilizada.trim() ? 'rota' : '',
+    !photo ? 'foto' : '',
+    !gps ? 'GPS' : '',
+    !motivo.trim() ? 'motivo do fechamento tardio' : '',
+  ].filter(Boolean)
+  const canSubmit = missingFields.length === 0
+
+  async function submit() {
+    if (!canSubmit || !photo || !gps) {
+      onMessage(`Falta informar: ${missingFields.join(', ')}.`)
+      return
+    }
+    setSaving(true)
+    try {
+      await api.finishTrip(token, trip.id, kmFinalNumber, rotaUtilizada.trim(), gps, photo, motivo.trim())
+      onMessage('Viagem atrasada finalizada e sinalizada ao seu superior.')
+      await onChange()
+      onFinished()
+    } catch (error) {
+      onMessage(error instanceof ApiError ? error.message : 'Nao foi possivel finalizar a viagem.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <section className="panel panel-edge-bottom">
+      <div className="section-title">
+        <AlertTriangle />
+        <div>
+          <h2>Fechamento pendente</h2>
+          <p>Esta viagem nao foi finalizada no mesmo dia da partida.</p>
+        </div>
+      </div>
+      <div className="info-card">
+        <AlertTriangle aria-hidden="true" />
+        <div>
+          <strong>Finalize antes de iniciar uma nova viagem</strong>
+          <p>
+            Voce precisa concluir esta viagem e informar o motivo do atraso. Seu superior imediato sera avisado
+            dessa pendencia.
+          </p>
+        </div>
+      </div>
+      <VehicleThumbCard modelo={trip.veiculo_modelo || vehicle?.modelo || ''} label="Veiculo" title={vehicleLabel} />
+      <div className="trip-summary cols-3">
+        <div>
+          <span>Km inicial</span>
+          <strong>{formatKm(trip.km_inicial)}</strong>
+        </div>
+        <div>
+          <span>Partida</span>
+          <strong>{formatDateTime(trip.partida_em)}</strong>
+        </div>
+        <div>
+          <span>Status</span>
+          <StatusPill status={trip.status} />
+        </div>
+      </div>
+      <label>
+        <span>Km final</span>
+        <input
+          inputMode="decimal"
+          type="number"
+          min={kmInicial}
+          value={kmFinal}
+          onChange={(event) => setKmFinal(event.target.value)}
+        />
+      </label>
+      <label>
+        <span>Rota utilizada</span>
+        <textarea rows={4} value={rotaUtilizada} onChange={(event) => setRotaUtilizada(event.target.value)} />
+      </label>
+      <CameraCapture label="Foto final" file={photo} onFileChange={setPhoto} />
+      <GpsBadge label="GPS de chegada" token={token} onGpsChange={setGps} />
+      <label>
+        <span>Motivo do fechamento tardio</span>
+        <textarea
+          rows={3}
+          placeholder="Explique por que a viagem nao foi finalizada no mesmo dia."
+          value={motivo}
+          onChange={(event) => setMotivo(event.target.value)}
+        />
+      </label>
+      <ReadinessChecklist
+        items={[
+          { label: 'Km final', done: hasValidKmFinal },
+          { label: 'Rota', done: Boolean(rotaUtilizada.trim()) },
+          { label: 'Foto', done: Boolean(photo) },
+          { label: 'GPS', done: Boolean(gps) },
+          { label: 'Motivo', done: Boolean(motivo.trim()) },
+        ]}
+      />
+      <button className="primary-button full" type="button" onClick={() => void submit()} disabled={saving}>
+        {saving ? <Loader2 className="spin" /> : <Send />}
+        <span>Finalizar viagem atrasada</span>
+      </button>
+      <button className="secondary-button full" type="button" onClick={onCloseApp}>
+        <X />
+        <span>Fechar aplicativo</span>
+      </button>
+      <button className="link-button full" type="button" onClick={onLogout}>
+        <LogOut />
+        <span>Sair da conta</span>
+      </button>
+    </section>
+  )
+}
+
 function InProgressPanel({
   trip,
   vehicles,
@@ -506,23 +675,29 @@ function CompletionPanel({
   onLogout,
   onCloseApp,
   onNewTrip,
+  lateClosure,
 }: {
   onLogout: () => void
   onCloseApp: () => void
   onNewTrip: () => void
+  lateClosure?: boolean
 }) {
   return (
     <section className="panel panel-edge-bottom completion-panel">
       <CheckCircle2 />
-      <h2>Itinerario registrado</h2>
-      <p>A viagem ficou pronta para o fechamento mensal.</p>
+      <h2>{lateClosure ? 'Viagem atrasada finalizada' : 'Itinerario registrado'}</h2>
+      <p>
+        {lateClosure
+          ? 'O fechamento tardio foi enviado ao seu superior imediato com o motivo informado. Agora voce pode iniciar a viagem de hoje.'
+          : 'A viagem ficou pronta para o fechamento mensal.'}
+      </p>
       <button className="primary-button full" type="button" onClick={onCloseApp}>
         <X />
         <span>Fechar aplicativo</span>
       </button>
       <button className="secondary-button full" type="button" onClick={onNewTrip}>
         <CarFront />
-        <span>Registrar outra viagem (outro carro)</span>
+        <span>{lateClosure ? 'Iniciar viagem de hoje' : 'Registrar outra viagem (outro carro)'}</span>
       </button>
       <button className="link-button full" type="button" onClick={onLogout}>
         <LogOut />

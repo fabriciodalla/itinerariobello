@@ -266,7 +266,15 @@ export const api = {
       ),
     })
   },
-  finishTrip(token: string, tripId: string, kmFinal: number, rotaUtilizada: string, gps: GpsPayload, foto: File) {
+  finishTrip(
+    token: string,
+    tripId: string,
+    kmFinal: number,
+    rotaUtilizada: string,
+    gps: GpsPayload,
+    foto: File,
+    motivoFechamentoTardio?: string,
+  ) {
     return request<Trip>(`/trips/${tripId}/finish`, {
       method: 'POST',
       token,
@@ -275,6 +283,7 @@ export const api = {
           km_final: kmFinal,
           rota_utilizada: rotaUtilizada,
           gps,
+          motivo_fechamento_tardio: motivoFechamentoTardio || undefined,
         },
         foto,
       ),

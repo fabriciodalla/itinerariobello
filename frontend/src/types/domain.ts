@@ -85,6 +85,9 @@ export interface Trip {
   rota_utilizada: string | null
   partida_em: string
   chegada_em: string | null
+  motivo_fechamento_tardio: string | null
+  fechamento_tardio: boolean
+  pendente_fechamento_tardio: boolean
   foto_hodometro_inicial: PhotoEvidence | null
   foto_hodometro_final: PhotoEvidence | null
 }
@@ -188,6 +191,9 @@ export interface ReportItem {
   km_final: Numeric | null
   km_rodado: Numeric | null
   rota_utilizada: string | null
+  motivo_fechamento_tardio: string | null
+  fechamento_tardio: boolean
+  pendente_fechamento_tardio: boolean
   foto_hodometro_inicial: PhotoEvidence | null
   foto_hodometro_final: PhotoEvidence | null
   gps_partida: GpsEvidence | null

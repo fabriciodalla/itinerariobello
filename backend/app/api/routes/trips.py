@@ -46,7 +46,7 @@ from app.schemas.trips import (
 )
 from app.services.geocoding import normalizar_endereco, reverse_geocode
 from app.services.photos import save_trip_photo
-from app.services.veiculos import data_referencia_atual, listar_veiculos_disponiveis_para_partida
+from app.services.veiculos import data_local, data_referencia_atual, listar_veiculos_disponiveis_para_partida
 
 router = APIRouter(prefix="/trips", tags=["trips"])
 photos_router = APIRouter(prefix="/photos", tags=["photos"])
@@ -72,6 +72,42 @@ def parse_json_form(raw_payload: str, schema: type[BaseModel]):
 def ensure_can_register_trip(usuario: Usuario) -> None:
     if usuario.perfil != PerfilUsuario.motorista:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Usuario sem permissao para registrar viagem.")
+
+
+def viagem_esta_atrasada(viagem: Viagem) -> bool:
+    """Viagem ainda em_andamento cuja partida ocorreu em um dia local anterior
+    ao dia atual (RN-034): fica pendente de fechamento tardio."""
+    if viagem.status != StatusViagem.em_andamento:
+        return False
+    return data_local(viagem.partida_em) != data_referencia_atual()
+
+
+def viagem_foi_fechada_tardiamente(viagem: Viagem) -> bool:
+    """Viagem concluida cuja chegada ocorreu em um dia local diferente do
+    dia da partida (RN-035)."""
+    if viagem.status != StatusViagem.concluida or viagem.chegada_em is None:
+        return False
+    return data_local(viagem.chegada_em) != data_local(viagem.partida_em)
+
+
+def get_pending_late_trip(db: Session, usuario_id: UUID) -> Viagem | None:
+    viagens_em_andamento = db.scalars(
+        select(Viagem)
+        .where(Viagem.usuario_id == usuario_id)
+        .where(Viagem.status == StatusViagem.em_andamento)
+    ).all()
+    return next((viagem for viagem in viagens_em_andamento if viagem_esta_atrasada(viagem)), None)
+
+
+def ensure_no_pending_late_trip(db: Session, usuario: Usuario) -> None:
+    if get_pending_late_trip(db, usuario.id) is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "Existe uma viagem do dia anterior pendente de fechamento. "
+                "Finalize-a informando o motivo antes de iniciar uma nova viagem."
+            ),
+        )
 
 
 def ensure_trip_owner(viagem: Viagem, usuario: Usuario) -> None:
@@ -246,6 +282,9 @@ def report_item(db: Session, viagem: Viagem) -> ReportItemResponse:
         km_final=viagem.km_final,
         km_rodado=viagem.km_rodado,
         rota_utilizada=viagem.rota_utilizada,
+        motivo_fechamento_tardio=viagem.motivo_fechamento_tardio,
+        fechamento_tardio=viagem_foi_fechada_tardiamente(viagem),
+        pendente_fechamento_tardio=viagem_esta_atrasada(viagem),
         foto_hodometro_inicial=report_photo_evidence(photos_by_type.get(TipoFotoHodometro.inicial)),
         foto_hodometro_final=report_photo_evidence(photos_by_type.get(TipoFotoHodometro.final)),
         gps_partida=report_gps_evidence(gps_by_type.get(TipoLocalizacaoGPS.partida)),
@@ -275,6 +314,9 @@ def trip_response(db: Session, viagem: Viagem) -> TripResponse:
         rota_utilizada=viagem.rota_utilizada,
         partida_em=viagem.partida_em,
         chegada_em=viagem.chegada_em,
+        motivo_fechamento_tardio=viagem.motivo_fechamento_tardio,
+        fechamento_tardio=viagem_foi_fechada_tardiamente(viagem),
+        pendente_fechamento_tardio=viagem_esta_atrasada(viagem),
         foto_hodometro_inicial=report_photo_evidence(photos_by_type.get(TipoFotoHodometro.inicial)),
         foto_hodometro_final=report_photo_evidence(photos_by_type.get(TipoFotoHodometro.final)),
     )
@@ -305,6 +347,7 @@ def start_trip(
     foto_hodometro: Annotated[UploadFile | None, File()] = None,
 ) -> TripResponse:
     ensure_can_register_trip(usuario)
+    ensure_no_pending_late_trip(db, usuario)
     if foto_hodometro is None:
         raise validation_error("Foto do hodometro inicial e obrigatoria.")
 
@@ -366,11 +409,19 @@ def finish_trip(
     if data.km_final < viagem.km_inicial:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Km final nao pode ser menor que km inicial.")
 
+    chegada_em = datetime.now(timezone.utc)
+    fechamento_tardio = data_local(chegada_em) != data_local(viagem.partida_em)
+    if fechamento_tardio and not data.motivo_fechamento_tardio:
+        raise validation_error(
+            "Viagem nao foi finalizada no mesmo dia da partida. Informe o motivo do fechamento tardio."
+        )
+
     viagem.km_final = data.km_final
     viagem.km_rodado = data.km_final - viagem.km_inicial
     viagem.rota_utilizada = rota
-    viagem.chegada_em = datetime.now(timezone.utc)
+    viagem.chegada_em = chegada_em
     viagem.status = StatusViagem.concluida
+    viagem.motivo_fechamento_tardio = data.motivo_fechamento_tardio if fechamento_tardio else None
     db.add(create_gps(viagem.id, TipoLocalizacaoGPS.chegada, data.gps))
     db.add(create_photo(viagem.id, TipoFotoHodometro.final, foto_hodometro))
     db.commit()

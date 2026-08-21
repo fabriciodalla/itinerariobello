@@ -222,6 +222,9 @@ def _draw_table(
 
         endereco_saida = gps_partida.endereco if gps_partida else None
         endereco_chegada = gps_chegada.endereco if gps_chegada else None
+        rota_label = viagem.rota_utilizada or ""
+        if viagem.motivo_fechamento_tardio:
+            rota_label = f"[FECHAMENTO TARDIO] {rota_label}".strip()
 
         values = [
             _motorista_label(viagem) if focus == "veiculo" else _veiculo_label(viagem),
@@ -229,7 +232,7 @@ def _draw_table(
             str(idx + 1),
             _address_no_country(endereco_saida),
             _address_no_country(endereco_chegada),
-            viagem.rota_utilizada or "",
+            rota_label,
             _fmt_km(viagem.km_inicial),
             _fmt_km(viagem.km_final),
             _fmt_km(viagem.km_rodado),

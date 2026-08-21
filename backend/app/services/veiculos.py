@@ -77,6 +77,13 @@ def data_referencia_atual() -> date:
     return datetime.now(_local_tz()).date()
 
 
+def data_local(momento: datetime) -> date:
+    """Converte um datetime (tipicamente em UTC) para a data no fuso local do
+    negocio, usada para decidir se uma viagem foi iniciada/finalizada no
+    mesmo dia (ver RN-034 e RN-035 em docs/regras-negocio.md)."""
+    return momento.astimezone(_local_tz()).date()
+
+
 def intervalo_do_dia(data_referencia: date) -> tuple[datetime, datetime]:
     """Janela [inicio, fim) do dia local (America/Cuiaba) convertida para UTC,
     ja que Viagem.partida_em e armazenado em UTC."""
