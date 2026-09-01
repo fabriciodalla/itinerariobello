@@ -103,6 +103,7 @@ export function AdminCentralScreen({ token, user, vehiclesInRoute, tab, onMessag
   const [editVeiculoAtivo, setEditVeiculoAtivo] = useState(true)
   const [editVeiculoPrincipal, setEditVeiculoPrincipal] = useState(false)
   const [apoliceArquivo, setApoliceArquivo] = useState<File | null>(null)
+  const [crlvArquivo, setCrlvArquivo] = useState<File | null>(null)
   const [uploadingDoc, setUploadingDoc] = useState(false)
 
   const load = useCallback(async () => {
@@ -225,6 +226,7 @@ export function AdminCentralScreen({ token, user, vehiclesInRoute, tab, onMessag
     setConfirmacao('')
     setCnhArquivo(null)
     setApoliceArquivo(null)
+    setCrlvArquivo(null)
   }
 
   function closeActions() {
@@ -257,6 +259,7 @@ export function AdminCentralScreen({ token, user, vehiclesInRoute, tab, onMessag
     setEditVeiculoAtivo(vehicle.ativo)
     setEditVeiculoPrincipal(vehicle.principal)
     setApoliceArquivo(null)
+    setCrlvArquivo(null)
     setEditTarget({ type: 'vehicle', vehicle })
   }
 
@@ -300,6 +303,22 @@ export function AdminCentralScreen({ token, user, vehiclesInRoute, tab, onMessag
       await load()
     } catch (error) {
       onMessage(error instanceof ApiError ? error.message : 'Erro ao enviar apolice.')
+    } finally {
+      setUploadingDoc(false)
+    }
+  }
+
+  async function handleUploadCrlv() {
+    if (!editTarget || editTarget.type !== 'vehicle' || !crlvArquivo) return
+    setUploadingDoc(true)
+    try {
+      const atualizado = await api.uploadVehicleCrlv(token, editTarget.vehicle.id, crlvArquivo)
+      setEditTarget({ type: 'vehicle', vehicle: atualizado })
+      setCrlvArquivo(null)
+      onMessage(`CRLV de ${atualizado.placa} enviado.`)
+      await load()
+    } catch (error) {
+      onMessage(error instanceof ApiError ? error.message : 'Erro ao enviar CRLV.')
     } finally {
       setUploadingDoc(false)
     }
@@ -610,6 +629,13 @@ export function AdminCentralScreen({ token, user, vehiclesInRoute, tab, onMessag
                       >
                         <FileText /> <span>Ver apolice</span>
                       </button>
+                      <button
+                        className="action-sheet-item"
+                        type="button"
+                        onClick={() => { void openDocument(actionsTarget.vehicle.crlv_download_url); closeActions() }}
+                      >
+                        <FileText /> <span>Ver CRLV</span>
+                      </button>
                     </>
                   )}
                 </div>
@@ -846,6 +872,35 @@ export function AdminCentralScreen({ token, user, vehiclesInRoute, tab, onMessag
                   >
                     {uploadingDoc ? <Loader2 className="spin" /> : <Upload />}
                     <span>{editTarget.vehicle.apolice_download_url ? 'Substituir apolice' : 'Enviar apolice'}</span>
+                  </button>
+                </div>
+
+                <label><span>CRLV do veiculo</span>
+                  <input
+                    type="file"
+                    accept="application/pdf,image/jpeg,image/png,image/webp"
+                    onChange={(e) => setCrlvArquivo(e.target.files?.[0] ?? null)}
+                  />
+                </label>
+                <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                  {editTarget.vehicle.crlv_download_url ? 'CRLV ja anexado.' : 'Nenhum CRLV anexado ainda.'}
+                </p>
+                <div className="action-row">
+                  <button
+                    className="secondary-button compact"
+                    type="button"
+                    onClick={() => void openDocument(editTarget.vehicle.crlv_download_url)}
+                  >
+                    <FileText /> <span>Ver CRLV</span>
+                  </button>
+                  <button
+                    className="primary-button compact"
+                    type="button"
+                    onClick={() => void handleUploadCrlv()}
+                    disabled={uploadingDoc || !crlvArquivo}
+                  >
+                    {uploadingDoc ? <Loader2 className="spin" /> : <Upload />}
+                    <span>{editTarget.vehicle.crlv_download_url ? 'Substituir CRLV' : 'Enviar CRLV'}</span>
                   </button>
                 </div>
               </div>

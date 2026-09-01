@@ -45,6 +45,10 @@ export interface Vehicle {
   apolice_arquivo_tamanho_bytes: number | null
   apolice_arquivo_atualizado_em: string | null
   apolice_download_url: string | null
+  crlv_arquivo_mime_type: string | null
+  crlv_arquivo_tamanho_bytes: number | null
+  crlv_arquivo_atualizado_em: string | null
+  crlv_download_url: string | null
 }
 
 export interface VehicleInRoute {

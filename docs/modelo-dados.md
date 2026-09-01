@@ -63,10 +63,14 @@ A CNH é um anexo opcional (ver `docs/regras-negocio.md`, RN-028 a RN-030): nunc
 | `apolice_arquivo_mime_type` | Texto | Não | Tipo MIME da apólice (`application/pdf`, `image/jpeg`, `image/png` ou `image/webp`) |
 | `apolice_arquivo_tamanho_bytes` | Inteiro | Não | Tamanho do arquivo da apólice em bytes, até 10 MB |
 | `apolice_arquivo_atualizado_em` | Data/hora | Não | Data/hora do último envio ou substituição da apólice |
+| `crlv_arquivo_path` | Texto | Não | Caminho local do arquivo do CRLV no protótipo; nulo quando não enviado |
+| `crlv_arquivo_mime_type` | Texto | Não | Tipo MIME do CRLV (`application/pdf`, `image/jpeg`, `image/png` ou `image/webp`) |
+| `crlv_arquivo_tamanho_bytes` | Inteiro | Não | Tamanho do arquivo do CRLV em bytes, até 10 MB |
+| `crlv_arquivo_atualizado_em` | Data/hora | Não | Data/hora do último envio ou substituição do CRLV |
 | `criado_em` | Data/hora | Sim | Auditoria |
 | `atualizado_em` | Data/hora | Sim | Auditoria |
 
-A apólice de seguro é um anexo opcional (ver `docs/regras-negocio.md`, RN-028 a RN-030): sua ausência não bloqueia cadastro, aprovação de solicitação ou seleção do veículo para partida.
+A apólice de seguro e o CRLV são anexos opcionais (ver `docs/regras-negocio.md`, RN-028 a RN-030): sua ausência não bloqueia cadastro, aprovação de solicitação ou seleção do veículo para partida.
 
 Padronização de nomenclatura:
 
@@ -243,7 +247,7 @@ Viagem 1:N LocalizacaoGPS
 - Usar campos `criado_em` e `atualizado_em` nas tabelas principais.
 - Nunca salvar senha em texto puro.
 - Guardar fotos localmente no protótipo e manter caminho no banco.
-- Guardar CNH e apólice de seguro localmente no protótipo (mesmo volume de fotos, em subpasta `documentos/`) e manter caminho no banco; ambos os anexos são opcionais e nunca bloqueiam fluxo algum quando ausentes.
+- Guardar CNH, apólice de seguro e CRLV localmente no protótipo (mesmo volume de fotos, em subpasta `documentos/`) e manter caminho no banco; todos os anexos são opcionais e nunca bloqueiam fluxo algum quando ausentes.
 - Guardar endereço do GPS como dado complementar e aproximado, sem substituir latitude e longitude; incluir número somente quando retornado pelo provedor; texto como `"Endereco nao resolvido"` deve ser gerado para exibição/exportação, não salvo como endereço real.
 - Calcular `km_rodado` a partir de `km_final - km_inicial`.
 - Validar status da viagem no backend.

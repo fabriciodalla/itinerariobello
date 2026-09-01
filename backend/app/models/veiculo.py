@@ -68,6 +68,11 @@ class Veiculo(UuidPkMixin, TimestampMixin, Base):
     apolice_arquivo_tamanho_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     apolice_arquivo_atualizado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    crlv_arquivo_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    crlv_arquivo_mime_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    crlv_arquivo_tamanho_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    crlv_arquivo_atualizado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     usuario_responsavel: Mapped[Usuario | None] = relationship(back_populates="veiculos_responsaveis")
     viagens: Mapped[list[Viagem]] = relationship(back_populates="veiculo")
 
@@ -76,3 +81,9 @@ class Veiculo(UuidPkMixin, TimestampMixin, Base):
         if not self.apolice_arquivo_path:
             return None
         return f"/vehicles/{self.id}/apolice"
+
+    @property
+    def crlv_download_url(self) -> str | None:
+        if not self.crlv_arquivo_path:
+            return None
+        return f"/vehicles/{self.id}/crlv"

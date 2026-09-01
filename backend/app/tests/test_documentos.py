@@ -152,3 +152,54 @@ def test_admin_anexa_apolice_em_veiculo_existente_aceitando_pdf(api_client):
         db.delete(db.get(Usuario, admin.id)) if db.get(Usuario, admin.id) else None
         db.commit()
         db.close()
+
+
+@pytest.mark.permissao
+@pytest.mark.risco(peso=100, criticidade="critica", area="permissao", referencias=("RF-021", "RN-030"))
+def test_admin_anexa_crlv_em_veiculo_existente_aceitando_pdf(api_client):
+    db = SessionLocal()
+    headers, admin = _admin_headers(db)
+    usuario, veiculo = _motorista_com_veiculo(db)
+    try:
+        response = api_client.post(
+            f"/vehicles/{veiculo.id}/crlv",
+            headers=headers,
+            files={"arquivo": ("crlv.pdf", SAMPLE_PDF, "application/pdf")},
+        )
+
+        assert response.status_code == 200, response.text
+        data = json_body(response)
+        assert data["crlv_download_url"] == f"/vehicles/{veiculo.id}/crlv"
+        assert data["crlv_arquivo_mime_type"] == "application/pdf"
+
+        download = api_client.get(f"/vehicles/{veiculo.id}/crlv", headers=headers)
+        assert download.status_code == 200, download.text
+        assert download.content
+    finally:
+        db.rollback()
+        db.delete(db.get(Veiculo, veiculo.id)) if db.get(Veiculo, veiculo.id) else None
+        db.delete(db.get(Usuario, usuario.id)) if db.get(Usuario, usuario.id) else None
+        db.delete(db.get(Usuario, admin.id)) if db.get(Usuario, admin.id) else None
+        db.commit()
+        db.close()
+
+
+@pytest.mark.permissao
+@pytest.mark.risco(peso=100, criticidade="critica", area="permissao", referencias=("RF-021", "RN-030"))
+def test_motorista_nao_pode_anexar_crlv_em_veiculo(api_client, motorista_auth_headers):
+    db = SessionLocal()
+    usuario, veiculo = _motorista_com_veiculo(db)
+    try:
+        response = api_client.post(
+            f"/vehicles/{veiculo.id}/crlv",
+            headers=motorista_auth_headers,
+            files={"arquivo": ("crlv.pdf", SAMPLE_PDF, "application/pdf")},
+        )
+
+        assert_forbidden(response)
+    finally:
+        db.rollback()
+        db.delete(db.get(Veiculo, veiculo.id)) if db.get(Veiculo, veiculo.id) else None
+        db.delete(db.get(Usuario, usuario.id)) if db.get(Usuario, usuario.id) else None
+        db.commit()
+        db.close()

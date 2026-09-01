@@ -105,3 +105,7 @@ def cnh_subdir(usuario_id: UUID) -> str:
 
 def apolice_subdir(veiculo_id: UUID) -> str:
     return f"apolices/{veiculo_id}"
+
+
+def crlv_subdir(veiculo_id: UUID) -> str:
+    return f"crlv/{veiculo_id}"

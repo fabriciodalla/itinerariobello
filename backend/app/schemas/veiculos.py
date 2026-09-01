@@ -26,6 +26,10 @@ class VeiculoResponse(BaseModel):
     apolice_arquivo_tamanho_bytes: int | None = None
     apolice_arquivo_atualizado_em: datetime | None = None
     apolice_download_url: str | None = None
+    crlv_arquivo_mime_type: str | None = None
+    crlv_arquivo_tamanho_bytes: int | None = None
+    crlv_arquivo_atualizado_em: datetime | None = None
+    crlv_download_url: str | None = None
 
 
 class VeiculoEmRotaResponse(BaseModel):

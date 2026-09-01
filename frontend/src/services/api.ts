@@ -224,6 +224,15 @@ export const api = {
       body: form,
     })
   },
+  uploadVehicleCrlv(token: string, veiculoId: string, arquivo: File) {
+    const form = new FormData()
+    form.set('arquivo', arquivo)
+    return request<Vehicle>(`/vehicles/${veiculoId}/crlv`, {
+      method: 'POST',
+      token,
+      body: form,
+    })
+  },
   me(token: string) {
     return request<User>('/auth/me', { token })
   },

@@ -46,6 +46,7 @@ function describeError(error: unknown, fallback: string) {
 export function RegisterVehicleScreen({ token, users, onMessage, onBack, onCreated }: RegisterVehicleScreenProps) {
   const [form, setForm] = useState<FormState>(emptyForm)
   const [apoliceArquivo, setApoliceArquivo] = useState<File | null>(null)
+  const [crlvArquivo, setCrlvArquivo] = useState<File | null>(null)
   const [saving, setSaving] = useState(false)
 
   const usuariosAtivos = users.filter((u) => u.ativo)
@@ -90,9 +91,18 @@ export function RegisterVehicleScreen({ token, users, onMessage, onBack, onCreat
         }
       }
 
+      if (crlvArquivo) {
+        try {
+          await api.uploadVehicleCrlv(token, veiculo.id, crlvArquivo)
+        } catch (error) {
+          onMessage(`Veiculo cadastrado, mas falha ao enviar CRLV: ${describeError(error, 'erro desconhecido')}`)
+        }
+      }
+
       onMessage(`Veiculo ${veiculo.placa} cadastrado e vinculado com sucesso.`)
       setForm(emptyForm)
       setApoliceArquivo(null)
+      setCrlvArquivo(null)
       onCreated()
     } catch (error) {
       onMessage(describeError(error, 'Nao foi possivel cadastrar o veiculo.'))
@@ -205,6 +215,14 @@ export function RegisterVehicleScreen({ token, users, onMessage, onBack, onCreat
             type="file"
             accept="application/pdf,image/jpeg,image/png,image/webp"
             onChange={(e) => setApoliceArquivo(e.target.files?.[0] ?? null)}
+          />
+        </label>
+        <label>
+          <span>CRLV do veiculo (opcional)</span>
+          <input
+            type="file"
+            accept="application/pdf,image/jpeg,image/png,image/webp"
+            onChange={(e) => setCrlvArquivo(e.target.files?.[0] ?? null)}
           />
         </label>
 

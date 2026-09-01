@@ -140,8 +140,10 @@ A CNH é opcional (RN-028 a RN-030): sua ausência não bloqueia nenhuma ação 
 | `PATCH` | `/vehicles/{id}/status` | Ativar ou inativar veículo | Admin |
 | `POST` | `/vehicles/{id}/apolice` | Enviar ou substituir a apólice de seguro do veículo (`multipart/form-data`, campo `arquivo`) | Admin |
 | `GET` | `/vehicles/{id}/apolice` | Baixar a apólice de seguro do veículo | Admin |
+| `POST` | `/vehicles/{id}/crlv` | Enviar ou substituir o CRLV do veículo (`multipart/form-data`, campo `arquivo`) | Admin |
+| `GET` | `/vehicles/{id}/crlv` | Baixar o CRLV do veículo | Admin |
 
-A apólice de seguro é opcional (RN-028 a RN-030): sua ausência não bloqueia cadastro, seleção nem partida do veículo.
+A apólice de seguro e o CRLV são opcionais (RN-028 a RN-030): sua ausência não bloqueia cadastro, seleção nem partida do veículo.
 
 Na listagem para partida, a API deve retornar apenas veículos permitidos para o usuário autenticado:
 

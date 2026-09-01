@@ -17,7 +17,7 @@ from app.models.usuario import Usuario
 from app.models.veiculo import Veiculo
 from app.models.viagem import Viagem
 from app.schemas.veiculos import VeiculoCreateRequest, VeiculoEmRotaResponse, VeiculoPatchRequest, VeiculoResponse
-from app.services.documents import apolice_subdir, delete_document_if_exists, save_document
+from app.services.documents import apolice_subdir, crlv_subdir, delete_document_if_exists, save_document
 from app.services.veiculos import (
     data_referencia_atual,
     listar_veiculos_disponiveis_para_partida,
@@ -64,6 +64,10 @@ def to_response(veiculo: Veiculo, usuario_id) -> VeiculoResponse:
         apolice_arquivo_tamanho_bytes=veiculo.apolice_arquivo_tamanho_bytes,
         apolice_arquivo_atualizado_em=veiculo.apolice_arquivo_atualizado_em,
         apolice_download_url=veiculo.apolice_download_url,
+        crlv_arquivo_mime_type=veiculo.crlv_arquivo_mime_type,
+        crlv_arquivo_tamanho_bytes=veiculo.crlv_arquivo_tamanho_bytes,
+        crlv_arquivo_atualizado_em=veiculo.crlv_arquivo_atualizado_em,
+        crlv_download_url=veiculo.crlv_download_url,
     )
 
 
@@ -257,3 +261,41 @@ def download_vehicle_apolice(
     if not path.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Arquivo da apolice nao encontrado.")
     return FileResponse(path, media_type=veiculo.apolice_arquivo_mime_type)
+
+
+@router.post("/{veiculo_id}/crlv", response_model=VeiculoResponse)
+def upload_vehicle_crlv(
+    veiculo_id: str,
+    _: Annotated[Usuario, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+    arquivo: UploadFile,
+) -> VeiculoResponse:
+    veiculo = _get_vehicle_or_404(db, veiculo_id)
+    settings = get_settings()
+    arquivo_path, tamanho_bytes, mime_type = save_document(
+        arquivo, settings.photos_dir, crlv_subdir(veiculo.id), "crlv"
+    )
+    arquivo_anterior = veiculo.crlv_arquivo_path
+    veiculo.crlv_arquivo_path = arquivo_path
+    veiculo.crlv_arquivo_mime_type = mime_type
+    veiculo.crlv_arquivo_tamanho_bytes = tamanho_bytes
+    veiculo.crlv_arquivo_atualizado_em = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(veiculo)
+    delete_document_if_exists(arquivo_anterior)
+    return to_response(veiculo, None)
+
+
+@router.get("/{veiculo_id}/crlv")
+def download_vehicle_crlv(
+    veiculo_id: str,
+    _: Annotated[Usuario, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    veiculo = _get_vehicle_or_404(db, veiculo_id)
+    if not veiculo.crlv_arquivo_path:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="CRLV nao cadastrado para este veiculo.")
+    path = Path(veiculo.crlv_arquivo_path)
+    if not path.exists():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Arquivo do CRLV nao encontrado.")
+    return FileResponse(path, media_type=veiculo.crlv_arquivo_mime_type)

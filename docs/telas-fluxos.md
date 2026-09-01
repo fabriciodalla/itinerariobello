@@ -360,14 +360,14 @@ Permitir que administrador gerencie usuários, veículos e redefinição de senh
 - Ação de redefinir senha de usuário.
 - Botões de olho nos campos de nova senha e confirmação.
 - No editar usuário: campo para enviar ou substituir a CNH do motorista, com indicação de arquivo já anexado e link de download.
-- No editar veículo: campo para enviar ou substituir a apólice de seguro, com indicação de arquivo já anexado e link de download.
+- No editar veículo: campo para enviar ou substituir a apólice de seguro e campo para enviar ou substituir o CRLV, cada um com indicação de arquivo já anexado e link de download.
 
 ### Critérios De Aceite
 
 - Disponível somente para administrador.
 - Redefinição de senha exige mínimo de caracteres definido pelo backend.
 - Bloqueia envio quando nova senha e confirmação não conferem.
-- Envio de CNH e de apólice de seguro é opcional; ausência de qualquer um dos dois não bloqueia edição de usuário ou veículo (RN-028 a RN-030).
+- Envio de CNH, de apólice de seguro e de CRLV é opcional; ausência de qualquer um deles não bloqueia edição de usuário ou veículo (RN-028 a RN-030).
 - Novo envio substitui o arquivo anterior.
 
 ## 13. Fluxo Principal Da Viagem
