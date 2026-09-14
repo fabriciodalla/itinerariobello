@@ -159,7 +159,7 @@ Estas regras estão ativas no código. Não remover nem flexibilizar sem aprova�
 | RN-013 | Viagem não editável após fechamento fechado | 409 |
 | RN-014 | Observação do fechamento é opcional e registrada quando informada | comportamento válido |
 | RN-017 | `km_final >= km_inicial` — constraint no banco | 409 |
-| RN-018 | Veículo em uso no dia bloqueia nova partida | 409 |
+| RN-018 | Veículo `em_andamento` bloqueia nova partida para qualquer motorista; `concluida` bloqueia só o mesmo motorista no dia | 409 |
 | RN-020 | Responsável pelo fechamento vê só fechamentos dos próprios subordinados | 403 |
 | RN-023 | `endereco` GPS é nullable — geocodificação pode falhar | comportamento válido |
 | RNF-004 | Perfil sem permissão | 403 |

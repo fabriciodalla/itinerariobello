@@ -10,11 +10,6 @@ from app.models.enums import StatusViagem, TipoDisponibilidadeVeiculo
 from app.models.veiculo import Veiculo
 from app.models.viagem import Viagem
 
-STATUS_BLOQUEIA_VEICULO_NO_DIA = (
-    StatusViagem.em_andamento,
-    StatusViagem.concluida,
-)
-
 MARCAS_PREFIXO_MODELO = (
     "MERCEDES-BENZ",
     "MERCEDES BENZ",
@@ -98,11 +93,24 @@ def consulta_veiculos_disponiveis_para_partida(
 ) -> Select[tuple[Veiculo]]:
     inicio, fim = intervalo_do_dia(data_referencia)
 
-    veiculos_bloqueados = (
+    # Viagem em_andamento bloqueia o veiculo para qualquer motorista: o carro
+    # esta fisicamente na rua e nao pode ser reutilizado por outra pessoa.
+    veiculos_em_uso = (
         select(Viagem.veiculo_id)
         .where(Viagem.partida_em >= inicio)
         .where(Viagem.partida_em < fim)
-        .where(Viagem.status.in_(STATUS_BLOQUEIA_VEICULO_NO_DIA))
+        .where(Viagem.status == StatusViagem.em_andamento)
+    )
+
+    # Viagem concluida so bloqueia nova partida do MESMO motorista no mesmo
+    # dia local (continuidade do hodometro); outro motorista pode usar o
+    # mesmo veiculo assim que a viagem anterior for finalizada (RN-018).
+    veiculos_concluidos_pelo_usuario = (
+        select(Viagem.veiculo_id)
+        .where(Viagem.partida_em >= inicio)
+        .where(Viagem.partida_em < fim)
+        .where(Viagem.status == StatusViagem.concluida)
+        .where(Viagem.usuario_id == usuario_id)
     )
 
     # 0: veiculo principal do usuario | 1: outro veiculo proprio do usuario
@@ -122,7 +130,8 @@ def consulta_veiculos_disponiveis_para_partida(
                 Veiculo.usuario_responsavel_id == usuario_id,
             )
         )
-        .where(Veiculo.id.not_in(veiculos_bloqueados))
+        .where(Veiculo.id.not_in(veiculos_em_uso))
+        .where(Veiculo.id.not_in(veiculos_concluidos_pelo_usuario))
         .order_by(prioridade_responsavel, Veiculo.placa)
     )
 

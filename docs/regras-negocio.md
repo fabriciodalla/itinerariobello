@@ -44,7 +44,7 @@ O fechamento mensal é sempre por motorista individual, considerando as viagens 
 | RN-015 | Fechamento mensal fechado deve registrar responsável, data, hora, status e observação quando informada | Backend |
 | RN-016 | Na partida, o veículo selecionado deve ser próprio do usuário ou veículo de empresa ativo | Backend |
 | RN-017 | Veículo próprio deve estar associado a um usuário responsável | Backend |
-| RN-018 | Veículo com itinerário iniciado no dia deve ficar bloqueado para nova partida | Backend |
+| RN-018 | Veículo com viagem `em_andamento` no dia local fica bloqueado para nova partida de qualquer motorista; com viagem `concluida` no dia local, o bloqueio para nova partida vale só para o mesmo motorista que a concluiu — outro motorista pode usar o mesmo veículo no mesmo dia | Backend |
 | RN-019 | Usuários da planilha operacional com perfil `motorista` devem poder registrar viagens | Backend |
 | RN-020 | Fechamento mensal final deve ser feito pelo superior imediato com permissão de fechamento, limitado a coordenador e cargos acima | Backend |
 | RN-021 | O fechamento mensal deve ser feito por motorista individual, não por equipe inteira | Backend |

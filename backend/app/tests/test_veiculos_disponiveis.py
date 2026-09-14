@@ -154,6 +154,67 @@ def test_veiculos_disponiveis_bloqueio_do_dia_usa_fuso_horario_local():
 
 
 @pytest.mark.risco(
+    peso=50,
+    criticidade="alta",
+    area="viagem",
+    referencias=("RF-004", "RN-018"),
+)
+def test_veiculo_com_viagem_concluida_libera_para_outro_motorista_e_bloqueia_o_mesmo():
+    """Apos a viagem ser finalizada (RN-018), o veiculo so continua bloqueado
+    para nova partida do MESMO motorista no mesmo dia local (continuidade do
+    hodometro); outro motorista deve poder usa-lo no mesmo dia."""
+    db = SessionLocal()
+    data_referencia = date(2026, 5, 20)
+
+    try:
+        motorista_original = Usuario(
+            nome="Motorista Original",
+            email="motorista.original.teste@bello.local",
+            senha_hash="hash",
+            perfil=PerfilUsuario.motorista,
+        )
+        outro_motorista = Usuario(
+            nome="Outro Motorista",
+            email="outro.motorista.teste@bello.local",
+            senha_hash="hash",
+            perfil=PerfilUsuario.motorista,
+        )
+        db.add_all([motorista_original, outro_motorista])
+        db.flush()
+
+        veiculo_empresa = Veiculo(
+            placa="GGG6G66",
+            modelo="Modelo Empresa Concluida",
+            tipo=TipoVeiculo.empresa,
+            tipo_disponibilidade=TipoDisponibilidadeVeiculo.alocado,
+        )
+        db.add(veiculo_empresa)
+        db.flush()
+
+        db.add(
+            Viagem(
+                usuario_id=motorista_original.id,
+                veiculo_id=veiculo_empresa.id,
+                status=StatusViagem.concluida,
+                km_inicial=100,
+                km_final=150,
+                partida_em=datetime(2026, 5, 20, 12, 0, tzinfo=timezone.utc),
+                chegada_em=datetime(2026, 5, 20, 13, 0, tzinfo=timezone.utc),
+            )
+        )
+        db.flush()
+
+        disponiveis_outro = listar_veiculos_disponiveis_para_partida(db, outro_motorista.id, data_referencia)
+        disponiveis_original = listar_veiculos_disponiveis_para_partida(db, motorista_original.id, data_referencia)
+
+        assert veiculo_empresa.id in [veiculo.id for veiculo in disponiveis_outro]
+        assert veiculo_empresa.id not in [veiculo.id for veiculo in disponiveis_original]
+    finally:
+        db.rollback()
+        db.close()
+
+
+@pytest.mark.risco(
     peso=20,
     criticidade="media",
     area="modelo_dados",
