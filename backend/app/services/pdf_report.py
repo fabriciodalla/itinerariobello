@@ -141,13 +141,21 @@ def generate_itinerary_pdf(
     focus: ReportFocus = "motorista",
 ) -> bytes:
     pdf = FPDF(orientation="L", unit="mm", format="A4")
-    pdf.set_auto_page_break(auto=True, margin=15)
+    # Paginacao e controlada manualmente em _draw_table/_draw_photos_section
+    # (cada uma decide quando chamar pdf.add_page()). O auto page break do
+    # fpdf2 fica desligado porque, com ele ligado, uma unica celula alta
+    # (ex.: motivo de lancamento manual longo, ver RN-037) pode disparar a
+    # quebra de pagina no meio do desenho da linha, deixando as colunas
+    # seguintes da tabela desalinhadas na pagina nova.
+    pdf.set_auto_page_break(auto=False)
     pdf.add_page()
 
     _draw_header(pdf, entidade_nome, ano, mes, focus)
     _draw_table(pdf, viagens, gps_map, focus)
 
     km_total = sum((v.km_rodado or Decimal("0") for v in viagens), Decimal("0"))
+    if pdf.get_y() + 14 > pdf.h - 15:
+        pdf.add_page()
     pdf.ln(6)
     pdf.set_font("Helvetica", "B", 11)
     pdf.set_text_color(*BRAND_COLOR)
@@ -247,7 +255,11 @@ def _draw_table(
 
         max_lines = 1
         for i, val in enumerate(values):
-            lines = pdf.multi_cell(COL_WIDTHS[i], ROW_H, _safe(val), split_only=True)
+            # Largura igual a do multi_cell real logo abaixo (COL_WIDTHS[i] - 1,
+            # a margem interna da celula): usar COL_WIDTHS[i] aqui subestima a
+            # quebra de linha e a ultima linha do texto real vaza para a
+            # borda da proxima linha da tabela.
+            lines = pdf.multi_cell(COL_WIDTHS[i] - 1, ROW_H, _safe(val), split_only=True)
             max_lines = max(max_lines, len(lines))
         cell_h = ROW_H * max_lines
 
