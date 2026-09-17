@@ -6,6 +6,7 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
+  ClipboardEdit,
   Download,
   Edit2,
   Eye,
@@ -34,7 +35,33 @@ interface TripEditState {
   saving: boolean
 }
 
+interface ManualTripFormState {
+  motoristaId: string
+  veiculoId: string
+  kmInicial: string
+  kmFinal: string
+  rotaUtilizada: string
+  partidaEm: string
+  chegadaEm: string
+  motivoManual: string
+  saving: boolean
+}
+
 type ReportMode = 'motorista' | 'veiculo'
+
+function emptyManualTripForm(motoristaId = ''): ManualTripFormState {
+  return {
+    motoristaId,
+    veiculoId: '',
+    kmInicial: '',
+    kmFinal: '',
+    rotaUtilizada: '',
+    partidaEm: '',
+    chegadaEm: '',
+    motivoManual: '',
+    saving: false,
+  }
+}
 
 export function MonthlyClosureScreen({ token, user, onMessage }: MonthlyClosureScreenProps) {
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7))
@@ -51,11 +78,14 @@ export function MonthlyClosureScreen({ token, user, onMessage }: MonthlyClosureS
   const [saving, setSaving] = useState(false)
   const [editingTripId, setEditingTripId] = useState<string | null>(null)
   const [editState, setEditState] = useState<TripEditState | null>(null)
+  const [showManualForm, setShowManualForm] = useState(false)
+  const [manualForm, setManualForm] = useState<ManualTripFormState>(() => emptyManualTripForm())
 
   const [ano, mes] = month.split('-').map(Number)
   const canReview = user.pode_aprovar || user.perfil === 'admin'
   const canEditTrips = user.pode_aprovar || user.perfil === 'admin'
   const canReportByVehicle = user.perfil === 'admin'
+  const canLaunchManualTrip = user.perfil === 'admin'
   const isVehicleMode = reportMode === 'veiculo'
 
   const usersById = useMemo(() => {
@@ -81,6 +111,11 @@ export function MonthlyClosureScreen({ token, user, onMessage }: MonthlyClosureS
   const visibleVehicles = useMemo(
     () => (showOnlyInactive ? vehicles.filter((v) => !v.ativo) : vehicles.filter((v) => v.ativo)),
     [vehicles, showOnlyInactive],
+  )
+
+  const allMotoristas = useMemo(
+    () => allUsers.filter((u) => u.perfil === 'motorista' && u.ativo),
+    [allUsers],
   )
 
   const selectedVehicle = vehicles.find((vehicle) => vehicle.id === selectedVehicleId) ?? null
@@ -248,6 +283,51 @@ export function MonthlyClosureScreen({ token, user, onMessage }: MonthlyClosureS
     }
   }
 
+  function openManualForm() {
+    setManualForm(emptyManualTripForm(!isVehicleMode ? selectedMotoristaId : ''))
+    setShowManualForm(true)
+  }
+
+  function closeManualForm() {
+    setShowManualForm(false)
+  }
+
+  async function submitManualForm() {
+    const {
+      motoristaId,
+      veiculoId,
+      kmInicial,
+      kmFinal,
+      rotaUtilizada,
+      partidaEm,
+      chegadaEm,
+      motivoManual,
+    } = manualForm
+    if (!motoristaId || !veiculoId || !kmInicial || !kmFinal || !rotaUtilizada || !partidaEm || !chegadaEm || !motivoManual.trim()) {
+      onMessage('Preencha todos os campos do lancamento manual, incluindo o motivo.')
+      return
+    }
+    setManualForm((prev) => ({ ...prev, saving: true }))
+    try {
+      await api.createManualTrip(token, {
+        usuario_id: motoristaId,
+        veiculo_id: veiculoId,
+        km_inicial: Number(kmInicial),
+        km_final: Number(kmFinal),
+        rota_utilizada: rotaUtilizada.trim(),
+        partida_em: new Date(partidaEm).toISOString(),
+        chegada_em: new Date(chegadaEm).toISOString(),
+        motivo_manual: motivoManual.trim(),
+      })
+      onMessage('Viagem lancada manualmente.')
+      setShowManualForm(false)
+      await load()
+    } catch (error) {
+      onMessage(error instanceof ApiError ? error.message : 'Nao foi possivel lancar a viagem manualmente.')
+      setManualForm((prev) => ({ ...prev, saving: false }))
+    }
+  }
+
   if (!canReview) {
     return (
       <section className="panel panel-edge-bottom">
@@ -380,7 +460,24 @@ export function MonthlyClosureScreen({ token, user, onMessage }: MonthlyClosureS
           <Download />
           <span>Exportar</span>
         </button>
+        {canLaunchManualTrip ? (
+          <button className="secondary-button" type="button" onClick={openManualForm} disabled={showManualForm}>
+            <ClipboardEdit />
+            <span>Lancar viagem manual</span>
+          </button>
+        ) : null}
       </div>
+
+      {showManualForm ? (
+        <ManualTripForm
+          form={manualForm}
+          motoristas={allMotoristas}
+          vehicles={visibleVehicles}
+          onChange={setManualForm}
+          onCancel={closeManualForm}
+          onSubmit={() => void submitManualForm()}
+        />
+      ) : null}
 
       <div className="modal-section-title">Viagens</div>
       <div className="item-list">
@@ -406,6 +503,123 @@ export function MonthlyClosureScreen({ token, user, onMessage }: MonthlyClosureS
         </div>
       ) : null}
     </section>
+  )
+}
+
+function ManualTripForm({
+  form,
+  motoristas,
+  vehicles,
+  onChange,
+  onCancel,
+  onSubmit,
+}: {
+  form: ManualTripFormState
+  motoristas: User[]
+  vehicles: Vehicle[]
+  onChange: (updater: (prev: ManualTripFormState) => ManualTripFormState) => void
+  onCancel: () => void
+  onSubmit: () => void
+}) {
+  function set<K extends keyof ManualTripFormState>(key: K, value: ManualTripFormState[K]) {
+    onChange((prev) => ({ ...prev, [key]: value }))
+  }
+
+  return (
+    <div className="trip-edit-form">
+      <div className="modal-section-title">Lancamento manual de viagem</div>
+      <p className="form-hint">
+        Use quando o motorista nao conseguiu registrar a viagem pelo app no dia. Nao exige foto nem GPS, mas o motivo e
+        obrigatorio e fica visivel no relatorio.
+      </p>
+      <div className="trip-edit-fields">
+        <label>
+          <span>Motorista</span>
+          <select value={form.motoristaId} onChange={(e) => set('motoristaId', e.target.value)}>
+            <option value="">Selecione</option>
+            {motoristas.map((motorista) => (
+              <option key={motorista.id} value={motorista.id}>
+                {motorista.nome}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>Veiculo</span>
+          <select value={form.veiculoId} onChange={(e) => set('veiculoId', e.target.value)}>
+            <option value="">Selecione</option>
+            {vehicles.map((vehicle) => (
+              <option key={vehicle.id} value={vehicle.id}>
+                {vehicle.placa} | {vehicle.modelo}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>Km inicial</span>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={form.kmInicial}
+            onChange={(e) => set('kmInicial', e.target.value)}
+          />
+        </label>
+        <label>
+          <span>Km final</span>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={form.kmFinal}
+            onChange={(e) => set('kmFinal', e.target.value)}
+          />
+        </label>
+        <label>
+          <span>Partida</span>
+          <input
+            type="datetime-local"
+            value={form.partidaEm}
+            onChange={(e) => set('partidaEm', e.target.value)}
+          />
+        </label>
+        <label>
+          <span>Chegada</span>
+          <input
+            type="datetime-local"
+            value={form.chegadaEm}
+            onChange={(e) => set('chegadaEm', e.target.value)}
+          />
+        </label>
+        <label className="trip-edit-rota">
+          <span>Rota utilizada</span>
+          <input
+            type="text"
+            value={form.rotaUtilizada}
+            onChange={(e) => set('rotaUtilizada', e.target.value)}
+          />
+        </label>
+        <label className="trip-edit-rota">
+          <span>Motivo do lancamento manual</span>
+          <textarea
+            rows={2}
+            value={form.motivoManual}
+            onChange={(e) => set('motivoManual', e.target.value)}
+            placeholder="Ex.: motorista sem acesso ao app no dia da viagem."
+          />
+        </label>
+      </div>
+      <div className="action-row">
+        <button type="button" className="primary-button compact" onClick={onSubmit} disabled={form.saving}>
+          {form.saving ? <Loader2 className="spin" size={15} /> : <Check size={15} />}
+          <span>Lancar viagem</span>
+        </button>
+        <button type="button" className="secondary-button compact" onClick={onCancel} disabled={form.saving}>
+          <X size={15} />
+          <span>Cancelar</span>
+        </button>
+      </div>
+    </div>
   )
 }
 
@@ -461,6 +675,7 @@ function TripReportCard({
         </div>
         <div className="list-card-actions">
           <StatusPill status={item.status} />
+          {item.origem_registro === 'manual' ? <StatusPill status="lancamento_manual" /> : null}
           {item.fechamento_tardio ? <StatusPill status="fechamento_tardio" /> : null}
           {item.pendente_fechamento_tardio ? <StatusPill status="pendente_tardio" /> : null}
           {canEditThis ? (
@@ -538,6 +753,16 @@ function TripReportCard({
               <span>{item.rota_utilizada || 'Rota pendente'}</span>
             </div>
           )}
+
+          {item.motivo_manual ? (
+            <div className="info-card warning">
+              <ClipboardEdit aria-hidden="true" />
+              <div>
+                <strong>Motivo do lancamento manual</strong>
+                <p>{item.motivo_manual}</p>
+              </div>
+            </div>
+          ) : null}
 
           {item.motivo_fechamento_tardio ? (
             <div className="info-card warning">

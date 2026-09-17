@@ -52,7 +52,7 @@ O fechamento mensal é sempre por motorista individual, considerando as viagens 
 | RN-023 | Endereço de partida e chegada é complemento do GPS e deve ser salvo quando resolvido, sem substituir latitude e longitude | Backend e app |
 | RN-024 | Token de recuperação de senha deve expirar e ser usado uma única vez | Backend |
 | RN-025 | Solicitação pública de cadastro não cria usuário ativo sem aprovação de administrador | Backend |
-| RN-026 | Somente usuários com perfil `motorista` podem iniciar, finalizar ou reenviar viagem; administrador e responsável pelo fechamento não executam o fluxo operacional de viagem | Backend e app |
+| RN-026 | Somente usuários com perfil `motorista` podem iniciar, finalizar ou reenviar viagem; administrador e responsável pelo fechamento não executam o fluxo operacional de viagem. Exceção: administrador pode criar viagem manualmente em nome do motorista, conforme RN-036 a RN-039 | Backend e app |
 | RN-027 | A tela inicial autenticada deve listar veículos em rota a partir de viagens com status `em_andamento`, exibindo veículo, status em rota e motorista responsável pela execução | Backend e app |
 | RN-028 | CNH do motorista, apólice de seguro e CRLV do veículo são anexos opcionais, aceitam PDF, JPEG, PNG ou WEBP, até 10 MB | Backend |
 | RN-029 | CNH é vinculada ao usuário; apólice de seguro e CRLV são vinculados ao veículo; nenhum dos três bloqueia solicitação de cadastro, aprovação ou operação de viagem quando ausente | Backend |
@@ -62,6 +62,10 @@ O fechamento mensal é sempre por motorista individual, considerando as viagens 
 | RN-033 | Um usuário pode ter mais de um veículo responsável; no máximo um deles pode ser marcado `principal` por vez (banco reforça com índice único). Na seleção de partida, a ordem é: veículo principal do usuário, depois os demais veículos próprios dele, depois os veículos alocados da empresa | Backend |
 | RN-034 | Viagem é estritamente diária: se ficar `em_andamento` além do dia local da partida, bloqueia o início de qualquer nova viagem do mesmo motorista até que ele finalize a pendente informando o motivo do fechamento tardio | Backend e app |
 | RN-035 | Viagem finalizada em dia local diferente do dia local da partida é marcada como fechamento tardio, com motivo obrigatório; essa sinalização fica visível ao superior imediato tanto no relatório mensal quanto na tela de fechamento, mesmo enquanto a viagem ainda estiver `em_andamento` e pendente | Backend e app |
+| RN-036 | Somente administrador pode lançar viagem manualmente em nome de um motorista, pela tela de fechamento mensal; a viagem é criada já `concluida`, sem foto e sem GPS | Backend e app |
+| RN-037 | Lançamento manual exige motivo obrigatório (`motivo_manual`); a viagem fica marcada com `origem_registro = manual` e exibe o motivo no relatório mensal, na exportação e no PDF | Backend e app |
+| RN-038 | Viagem manual continua sujeita à regra de veículo em uso no dia local (RN-018), avaliada na data informada para a viagem, não necessariamente no dia atual | Backend |
+| RN-039 | Viagem manual não pode ser lançada quando o fechamento mensal do motorista naquele período já estiver `fechado` (mesma trava de RN-013) | Backend |
 
 ## 4. Fluxo De Validação Da Partida
 
@@ -104,6 +108,18 @@ O fechamento mensal é sempre por motorista individual, considerando as viagens 
 3. App exibe placa, modelo, status `Em rota`, motorista e data/hora de partida.
 4. A tela não exibe latitude, longitude, fotos ou endereço; esses dados continuam restritos aos fluxos de viagem, histórico, fechamento e relatório conforme permissão.
 
+## 6.2 Fluxo De Lançamento Manual De Viagem Pelo Administrador
+
+Usado quando o motorista não conseguiu registrar a partida/chegada pelo app no dia correto (RF-023, RN-036 a RN-039).
+
+1. Administrador acessa a tela de fechamento mensal e seleciona o motorista.
+2. Administrador registra manualmente veículo, km inicial, km final, rota utilizada, data/hora de partida, data/hora de chegada e o motivo do lançamento manual (obrigatório).
+3. Backend valida km final maior ou igual ao km inicial e chegada não anterior à partida.
+4. Backend valida que o fechamento mensal do motorista naquele período não está `fechado` (RN-039).
+5. Backend valida disponibilidade do veículo na data informada, aplicando a mesma regra de veículo em uso no dia (RN-018, RN-038).
+6. Backend cria a viagem já `concluida`, sem foto e sem GPS, com `origem_registro = manual` e o motivo preenchido.
+7. Relatório mensal, exportação e PDF exibem a viagem sinalizada como lançamento manual, junto do motivo informado.
+
 ## 7. Campos Editáveis Antes Do Fechamento Mensal Fechado
 
 | Campo | Motorista pode editar? | Observação |
@@ -140,7 +156,8 @@ O relatório mensal deve conter:
 - superior responsável pelo fechamento;
 - data e hora do fechamento;
 - observação do fechamento, quando informada;
-- sinalização de fechamento tardio (`fechamento_tardio`) ou de pendência de fechamento tardio (`pendente_fechamento_tardio`) e o motivo informado pelo motorista (`motivo_fechamento_tardio`), quando aplicável (RN-034, RN-035).
+- sinalização de fechamento tardio (`fechamento_tardio`) ou de pendência de fechamento tardio (`pendente_fechamento_tardio`) e o motivo informado pelo motorista (`motivo_fechamento_tardio`), quando aplicável (RN-034, RN-035);
+- origem do registro (`origem_registro`: `app` ou `manual`) e motivo do lançamento manual (`motivo_manual`), quando aplicável (RN-036 a RN-039).
 
 Cada item retornado pela consulta do relatório mensal deve entregar diretamente as evidências da viagem, sem exigir chamadas adicionais para montar o fechamento:
 

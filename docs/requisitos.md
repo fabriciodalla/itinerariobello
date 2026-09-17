@@ -44,6 +44,7 @@ Todos os usuários importados da planilha operacional com perfil `motorista` dev
 | RF-020 | O usuário deve visualizar veículos em rota na tela inicial | Tela inicial autenticada lista viagens em andamento com veículo, status em rota, motorista responsável e horário de partida |
 | RF-021 | O sistema deve permitir anexar a CNH do motorista, a apólice de seguro e o CRLV do veículo | Solicitação pública de cadastro aceita CNH e apólice como anexos opcionais; administrador pode enviar ou substituir CNH de qualquer usuário na tela de usuários e apólice/CRLV de qualquer veículo nas telas de cadastro e edição de veículo, sem bloquear nenhum fluxo quando ausentes |
 | RF-022 | A viagem deve ser exclusivamente diária | Se o motorista não finalizar a viagem no mesmo dia local da partida, o app exige, na próxima abertura, uma tela obrigatória de fechamento tardio com todos os campos de chegada mais o motivo do atraso; enquanto pendente, bloqueia o início de nova viagem; ao finalizar, sinaliza a viagem ao superior imediato no relatório mensal e na tela de fechamento |
+| RF-023 | O administrador deve poder lançar manualmente uma viagem em nome de um motorista, na tela de fechamento mensal | Lançamento manual não exige foto nem GPS, mas exige motivo obrigatório; a viagem criada é sinalizada como lançamento manual no relatório mensal e na exportação, junto do motivo informado |
 
 ## 4. Requisitos Não Funcionais
 

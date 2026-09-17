@@ -1,5 +1,6 @@
 export type PerfilUsuario = 'motorista' | 'supervisor' | 'admin'
 export type StatusViagem = 'em_andamento' | 'concluida'
+export type OrigemRegistroViagem = 'app' | 'manual'
 export type StatusFechamento = 'aberto' | 'fechado'
 export type StatusSolicitacaoCadastro = 'pendente' | 'aprovada' | 'rejeitada'
 export type TipoVeiculo = 'proprio' | 'alugado' | 'empresa'
@@ -92,8 +93,21 @@ export interface Trip {
   motivo_fechamento_tardio: string | null
   fechamento_tardio: boolean
   pendente_fechamento_tardio: boolean
+  origem_registro: OrigemRegistroViagem
+  motivo_manual: string | null
   foto_hodometro_inicial: PhotoEvidence | null
   foto_hodometro_final: PhotoEvidence | null
+}
+
+export interface TripManualCreatePayload {
+  usuario_id: string
+  veiculo_id: string
+  km_inicial: number
+  km_final: number
+  rota_utilizada: string
+  partida_em: string
+  chegada_em: string
+  motivo_manual: string
 }
 
 export interface LoginResponse {
@@ -198,6 +212,8 @@ export interface ReportItem {
   motivo_fechamento_tardio: string | null
   fechamento_tardio: boolean
   pendente_fechamento_tardio: boolean
+  origem_registro: OrigemRegistroViagem
+  motivo_manual: string | null
   foto_hodometro_inicial: PhotoEvidence | null
   foto_hodometro_final: PhotoEvidence | null
   gps_partida: GpsEvidence | null

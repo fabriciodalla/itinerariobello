@@ -6,7 +6,13 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 
-from app.models.enums import StatusFechamentoMensal, StatusViagem, TipoFotoHodometro, TipoLocalizacaoGPS
+from app.models.enums import (
+    OrigemRegistroViagem,
+    StatusFechamentoMensal,
+    StatusViagem,
+    TipoFotoHodometro,
+    TipoLocalizacaoGPS,
+)
 from app.schemas.location import endereco_foi_resolvido, endereco_para_exibicao
 
 
@@ -44,6 +50,33 @@ class TripFinishPayload(BaseModel):
             return None
         motivo = value.strip()
         return motivo or None
+
+
+class TripManualCreatePayload(BaseModel):
+    usuario_id: UUID
+    veiculo_id: UUID
+    km_inicial: Decimal = Field(ge=0)
+    km_final: Decimal = Field(ge=0)
+    rota_utilizada: str = Field(min_length=1)
+    partida_em: datetime
+    chegada_em: datetime
+    motivo_manual: str = Field(min_length=1, max_length=2000)
+
+    @field_validator("rota_utilizada")
+    @classmethod
+    def limpar_rota(cls, value: str) -> str:
+        rota = value.strip()
+        if not rota:
+            raise ValueError("Rota utilizada nao pode ficar em branco.")
+        return rota
+
+    @field_validator("motivo_manual")
+    @classmethod
+    def limpar_motivo_manual(cls, value: str) -> str:
+        motivo = value.strip()
+        if not motivo:
+            raise ValueError("Motivo do lancamento manual e obrigatorio.")
+        return motivo
 
 
 class TripPatchPayload(BaseModel):
@@ -90,6 +123,8 @@ class TripResponse(BaseModel):
     motivo_fechamento_tardio: str | None = None
     fechamento_tardio: bool = False
     pendente_fechamento_tardio: bool = False
+    origem_registro: OrigemRegistroViagem = OrigemRegistroViagem.app
+    motivo_manual: str | None = None
     foto_hodometro_inicial: ReportPhotoEvidenceResponse | None = None
     foto_hodometro_final: ReportPhotoEvidenceResponse | None = None
 
@@ -133,6 +168,8 @@ class ReportItemResponse(BaseModel):
     motivo_fechamento_tardio: str | None = None
     fechamento_tardio: bool = False
     pendente_fechamento_tardio: bool = False
+    origem_registro: OrigemRegistroViagem = OrigemRegistroViagem.app
+    motivo_manual: str | None = None
     foto_hodometro_inicial: ReportPhotoEvidenceResponse | None = None
     foto_hodometro_final: ReportPhotoEvidenceResponse | None = None
     gps_partida: GPSResponse | None = None

@@ -1924,9 +1924,16 @@ textarea:focus {
 .status-supervisor,
 .status-rejeitada,
 .status-fechamento_tardio,
-.status-pendente_tardio {
+.status-pendente_tardio,
+.status-lancamento_manual {
   color: var(--warning);
   background: var(--warning-soft);
+}
+
+.form-hint {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 0.85rem;
 }
 
 .empty-state {

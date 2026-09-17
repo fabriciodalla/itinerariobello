@@ -13,6 +13,7 @@ from fpdf import FPDF
 from PIL import Image
 
 from app.core.config import get_settings
+from app.models.enums import OrigemRegistroViagem
 
 if TYPE_CHECKING:
     from app.models.foto_hodometro import FotoHodometro
@@ -225,6 +226,8 @@ def _draw_table(
         rota_label = viagem.rota_utilizada or ""
         if viagem.motivo_fechamento_tardio:
             rota_label = f"[FECHAMENTO TARDIO] {rota_label}".strip()
+        if viagem.origem_registro == OrigemRegistroViagem.manual:
+            rota_label = f"[LANCAMENTO MANUAL: {viagem.motivo_manual or ''}] {rota_label}".strip()
 
         values = [
             _motorista_label(viagem) if focus == "veiculo" else _veiculo_label(viagem),

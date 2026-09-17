@@ -102,6 +102,9 @@ Regras de disponibilidade:
 | `motivo_fechamento_tardio` | Texto | Depende | Obrigatório quando a viagem é finalizada em dia local diferente do dia local da partida (RN-035); nulo quando finalizada no mesmo dia |
 | `partida_em` | Data/hora | Sim | Definido pelo backend |
 | `chegada_em` | Data/hora | Não | Definido pelo backend |
+| `origem_registro` | Enum (`app`, `manual`) | Sim | `app` no fluxo normal do motorista; `manual` quando criada pelo administrador (RN-036 a RN-039) |
+| `motivo_manual` | Texto | Depende | Obrigatório quando `origem_registro = manual`; nulo caso contrário (RN-037) |
+| `criado_por_id` | UUID | Não | Administrador que criou a viagem manualmente; nulo nas viagens registradas pelo próprio motorista |
 | `criado_em` | Data/hora | Sim | Auditoria |
 | `atualizado_em` | Data/hora | Sim | Auditoria |
 

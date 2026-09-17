@@ -9,7 +9,7 @@ from sqlalchemy import CheckConstraint, DateTime, Enum as SqlEnum, ForeignKey, I
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UuidPkMixin
-from app.models.enums import StatusViagem, enum_values
+from app.models.enums import OrigemRegistroViagem, StatusViagem, enum_values
 
 if TYPE_CHECKING:
     from app.models.aprovacao import Aprovacao
@@ -24,6 +24,10 @@ class Viagem(UuidPkMixin, TimestampMixin, Base):
     __table_args__ = (
         CheckConstraint("km_final IS NULL OR km_final >= km_inicial", name="ck_viagens_km_final_maior_igual_inicial"),
         CheckConstraint("km_rodado IS NULL OR km_rodado >= 0", name="ck_viagens_km_rodado_nao_negativo"),
+        CheckConstraint(
+            "origem_registro <> 'manual' OR motivo_manual IS NOT NULL",
+            name="ck_viagens_motivo_manual_obrigatorio",
+        ),
         Index("ix_viagens_usuario_id", "usuario_id"),
         Index("ix_viagens_veiculo_id", "veiculo_id"),
         Index("ix_viagens_status", "status"),
@@ -48,9 +52,18 @@ class Viagem(UuidPkMixin, TimestampMixin, Base):
         server_default=func.now(),
     )
     chegada_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    origem_registro: Mapped[OrigemRegistroViagem] = mapped_column(
+        SqlEnum(OrigemRegistroViagem, name="origem_registro_viagem", values_callable=enum_values),
+        nullable=False,
+        default=OrigemRegistroViagem.app,
+        server_default=OrigemRegistroViagem.app.value,
+    )
+    motivo_manual: Mapped[str | None] = mapped_column(Text, nullable=True)
+    criado_por_id: Mapped[UUID | None] = mapped_column(ForeignKey("usuarios.id"), nullable=True)
 
-    usuario: Mapped[Usuario] = relationship(back_populates="viagens")
+    usuario: Mapped[Usuario] = relationship(back_populates="viagens", foreign_keys=[usuario_id])
     veiculo: Mapped[Veiculo] = relationship(back_populates="viagens")
+    criado_por: Mapped[Usuario | None] = relationship(foreign_keys=[criado_por_id])
     fotos_hodometro: Mapped[list[FotoHodometro]] = relationship(back_populates="viagem")
     localizacoes_gps: Mapped[list[LocalizacaoGPS]] = relationship(back_populates="viagem")
     aprovacoes: Mapped[list[Aprovacao]] = relationship(back_populates="viagem")

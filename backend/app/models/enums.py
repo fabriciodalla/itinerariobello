@@ -23,6 +23,11 @@ class StatusViagem(str, Enum):
     concluida = "concluida"
 
 
+class OrigemRegistroViagem(str, Enum):
+    app = "app"
+    manual = "manual"
+
+
 class TipoFotoHodometro(str, Enum):
     inicial = "inicial"
     final = "final"

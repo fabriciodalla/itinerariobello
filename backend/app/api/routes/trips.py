@@ -19,6 +19,7 @@ from app.api.deps import get_current_user
 from app.core.config import get_settings
 from app.db.session import get_db
 from app.models.enums import (
+    OrigemRegistroViagem,
     PerfilUsuario,
     StatusFechamentoMensal,
     StatusViagem,
@@ -40,13 +41,18 @@ from app.schemas.trips import (
     ReportPhotoEvidenceResponse,
     ReportItemResponse,
     TripFinishPayload,
+    TripManualCreatePayload,
     TripPatchPayload,
     TripResponse,
     TripStartPayload,
 )
 from app.services.geocoding import normalizar_endereco, reverse_geocode
 from app.services.photos import save_trip_photo
-from app.services.veiculos import data_local, data_referencia_atual, listar_veiculos_disponiveis_para_partida
+from app.services.veiculos import (
+    data_local,
+    data_referencia_atual,
+    listar_veiculos_disponiveis_para_partida,
+)
 
 router = APIRouter(prefix="/trips", tags=["trips"])
 photos_router = APIRouter(prefix="/photos", tags=["photos"])
@@ -212,6 +218,23 @@ def ensure_monthly_closure_open(db: Session, viagem: Viagem) -> None:
         )
 
 
+def ensure_monthly_closure_open_for_period(db: Session, motorista_id: UUID, ano: int, mes: int) -> None:
+    fechamento = get_monthly_closure(db, motorista_id, ano, mes)
+    if fechamento and fechamento.status == StatusFechamentoMensal.fechado:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Fechamento mensal deste periodo ja esta fechado.",
+        )
+
+
+def ensure_can_create_manual_trip(usuario: Usuario) -> None:
+    if usuario.perfil != PerfilUsuario.admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Somente administrador pode registrar viagem manualmente.",
+        )
+
+
 def photo_download_url(foto_id: UUID) -> str:
     return f"/photos/{foto_id}"
 
@@ -285,6 +308,8 @@ def report_item(db: Session, viagem: Viagem) -> ReportItemResponse:
         motivo_fechamento_tardio=viagem.motivo_fechamento_tardio,
         fechamento_tardio=viagem_foi_fechada_tardiamente(viagem),
         pendente_fechamento_tardio=viagem_esta_atrasada(viagem),
+        origem_registro=viagem.origem_registro,
+        motivo_manual=viagem.motivo_manual,
         foto_hodometro_inicial=report_photo_evidence(photos_by_type.get(TipoFotoHodometro.inicial)),
         foto_hodometro_final=report_photo_evidence(photos_by_type.get(TipoFotoHodometro.final)),
         gps_partida=report_gps_evidence(gps_by_type.get(TipoLocalizacaoGPS.partida)),
@@ -317,6 +342,8 @@ def trip_response(db: Session, viagem: Viagem) -> TripResponse:
         motivo_fechamento_tardio=viagem.motivo_fechamento_tardio,
         fechamento_tardio=viagem_foi_fechada_tardiamente(viagem),
         pendente_fechamento_tardio=viagem_esta_atrasada(viagem),
+        origem_registro=viagem.origem_registro,
+        motivo_manual=viagem.motivo_manual,
         foto_hodometro_inicial=report_photo_evidence(photos_by_type.get(TipoFotoHodometro.inicial)),
         foto_hodometro_final=report_photo_evidence(photos_by_type.get(TipoFotoHodometro.final)),
     )
@@ -467,6 +494,54 @@ def patch_trip(
         viagem.km_final = payload.km_final
         viagem.km_rodado = payload.km_final - viagem.km_inicial
 
+    db.commit()
+    db.refresh(viagem)
+    return trip_response(db, viagem)
+
+
+@router.post("/manual", response_model=TripResponse, status_code=status.HTTP_201_CREATED)
+def create_manual_trip(
+    payload: TripManualCreatePayload,
+    usuario: Annotated[Usuario, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> TripResponse:
+    """Lancamento manual de viagem pelo administrador (RN-036 a RN-039), para
+    motoristas que nao conseguiram registrar partida/chegada pelo app no dia
+    correto. Nao exige foto nem GPS, mas exige motivo e respeita as mesmas
+    travas de veiculo em uso e fechamento mensal fechado."""
+    ensure_can_create_manual_trip(usuario)
+    motorista = get_user_or_404(db, payload.usuario_id)
+    if motorista.perfil != PerfilUsuario.motorista:
+        raise validation_error("Usuario selecionado nao e motorista.")
+    veiculo = get_vehicle_or_404(db, payload.veiculo_id)
+
+    if payload.chegada_em < payload.partida_em:
+        raise validation_error("Chegada nao pode ser anterior a partida.")
+    if payload.km_final < payload.km_inicial:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Km final nao pode ser menor que km inicial.")
+
+    ensure_monthly_closure_open_for_period(db, motorista.id, payload.partida_em.year, payload.partida_em.month)
+
+    data_referencia = data_local(payload.partida_em)
+    veiculos_permitidos = listar_veiculos_disponiveis_para_partida(db, motorista.id, data_referencia)
+    if veiculo.id not in {item.id for item in veiculos_permitidos}:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Veiculo indisponivel nesta data.")
+
+    viagem = Viagem(
+        usuario_id=motorista.id,
+        veiculo_id=veiculo.id,
+        status=StatusViagem.concluida,
+        km_inicial=payload.km_inicial,
+        km_final=payload.km_final,
+        km_rodado=payload.km_final - payload.km_inicial,
+        rota_utilizada=payload.rota_utilizada,
+        partida_em=payload.partida_em,
+        chegada_em=payload.chegada_em,
+        origem_registro=OrigemRegistroViagem.manual,
+        motivo_manual=payload.motivo_manual,
+        criado_por_id=usuario.id,
+    )
+    db.add(viagem)
     db.commit()
     db.refresh(viagem)
     return trip_response(db, viagem)
@@ -712,6 +787,8 @@ REPORT_EXPORT_FIELDNAMES = [
     "km_final",
     "km_rodado",
     "rota_utilizada",
+    "origem_registro",
+    "motivo_manual",
     "foto_hodometro_inicial_id",
     "foto_hodometro_inicial_url",
     "foto_hodometro_final_id",

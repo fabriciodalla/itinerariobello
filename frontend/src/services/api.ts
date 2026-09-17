@@ -10,6 +10,7 @@ import type {
   SignupRequestPayload,
   StatusSolicitacaoCadastro,
   Trip,
+  TripManualCreatePayload,
   User,
   UserCreatePayload,
   UserSummary,
@@ -301,6 +302,13 @@ export const api = {
   patchTrip(token: string, tripId: string, data: { km_inicial?: number; km_final?: number; rota_utilizada?: string }) {
     return request<Trip>(`/trips/${tripId}`, {
       method: 'PATCH',
+      token,
+      body: JSON.stringify(data),
+    })
+  },
+  createManualTrip(token: string, data: TripManualCreatePayload) {
+    return request<Trip>('/trips/manual', {
+      method: 'POST',
       token,
       body: JSON.stringify(data),
     })

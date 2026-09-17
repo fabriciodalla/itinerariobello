@@ -204,8 +204,35 @@ Campos principais de veículo:
 | `PATCH` | `/trips/{id}` | Editar dados permitidos antes do fechamento fechado | Motorista |
 | `POST` | `/trips/{id}/submit` | Enviar ou reenviar viagem completa para o fechamento mensal | Motorista |
 | `GET` | `/trips/{id}/gps` | Listar coordenadas GPS da viagem | Motorista |
+| `POST` | `/trips/manual` | Lançar viagem manualmente em nome de um motorista (RF-023, RN-036 a RN-039) | Admin |
 
-Partida, chegada e reenvio são ações operacionais exclusivas de usuários com perfil `motorista`. Administrador e responsável pelo fechamento fora do perfil `motorista` recebem `403` nesses endpoints; administradores continuam podendo consultar a base pelos relatórios conforme permissão.
+Partida, chegada e reenvio são ações operacionais exclusivas de usuários com perfil `motorista`. Administrador e responsável pelo fechamento fora do perfil `motorista` recebem `403` nesses endpoints; administradores continuam podendo consultar a base pelos relatórios conforme permissão. A única exceção é `POST /trips/manual`, exclusiva de administrador.
+
+### 7.1 Contrato Para Lançamento Manual
+
+`POST /trips/manual` (somente administrador):
+
+```json
+{
+  "usuario_id": "uuid-do-motorista",
+  "veiculo_id": "uuid-do-veiculo",
+  "km_inicial": 12345.6,
+  "km_final": 12400.0,
+  "rota_utilizada": "Cliente X -> Cliente Y",
+  "partida_em": "2026-09-15T12:00:00Z",
+  "chegada_em": "2026-09-15T20:00:00Z",
+  "motivo_manual": "Motorista sem acesso ao app no dia; registrado retroativamente pelo administrador."
+}
+```
+
+Regras aplicadas pelo backend:
+
+- `motivo_manual` é obrigatório (não aceita vazio); resposta `422` quando ausente.
+- `km_final` não pode ser menor que `km_inicial`; `chegada_em` não pode ser anterior a `partida_em`; ambos retornam `422`/`409` conforme o caso.
+- Veículo deve estar disponível na data de `partida_em`, aplicando a mesma regra de veículo em uso no dia (RN-018, RN-038); indisponibilidade retorna `409`.
+- Fechamento mensal do motorista no período de `partida_em` não pode estar `fechado` (RN-039); retorna `409` quando estiver.
+- A viagem é criada já `concluida`, sem foto e sem GPS, com `origem_registro = "manual"` e o `motivo_manual` preenchido.
+- Resposta usa o mesmo formato de `TripResponse` (ver seção 7), incluindo `origem_registro` e `motivo_manual`.
 
 `GET /trips` deve retornar, para usuários sem permissão de fechamento, somente viagens próprias. Usuários com poder de fechamento podem receber também viagens de subordinados conforme permissão, e administradores podem consultar a base inteira independente da hierarquia.
 
@@ -229,6 +256,8 @@ Cada item de `GET /trips` e `GET /trips/{id}` deve trazer dados suficientes para
   "motivo_fechamento_tardio": null,
   "fechamento_tardio": false,
   "pendente_fechamento_tardio": false,
+  "origem_registro": "app",
+  "motivo_manual": null,
   "foto_hodometro_inicial": {
     "id": "uuid-da-foto-inicial",
     "viagem_id": "uuid-da-viagem",
@@ -426,6 +455,8 @@ Item de resposta:
   "motivo_fechamento_tardio": null,
   "fechamento_tardio": false,
   "pendente_fechamento_tardio": false,
+  "origem_registro": "app",
+  "motivo_manual": null,
   "foto_hodometro_inicial": {
     "id": "uuid-da-foto-inicial",
     "viagem_id": "uuid-da-viagem",

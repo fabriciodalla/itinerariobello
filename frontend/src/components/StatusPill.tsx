@@ -13,6 +13,7 @@ type KnownStatus =
   | 'em_rota'
   | 'fechamento_tardio'
   | 'pendente_tardio'
+  | 'lancamento_manual'
 
 const LABELS: Record<KnownStatus, string> = {
   em_andamento: 'Em andamento',
@@ -31,6 +32,7 @@ const LABELS: Record<KnownStatus, string> = {
   em_rota: 'Em rota',
   fechamento_tardio: 'Finalizada em outro dia',
   pendente_tardio: 'Aguardando fechamento (atrasada)',
+  lancamento_manual: 'Lancamento manual',
 }
 
 export function StatusPill({ status }: { status: KnownStatus }) {

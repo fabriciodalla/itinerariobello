@@ -59,7 +59,10 @@ class Usuario(UuidPkMixin, TimestampMixin, Base):
     superior: Mapped[Usuario | None] = relationship(remote_side="Usuario.id", back_populates="subordinados")
     subordinados: Mapped[list[Usuario]] = relationship(back_populates="superior")
     veiculos_responsaveis: Mapped[list[Veiculo]] = relationship(back_populates="usuario_responsavel")
-    viagens: Mapped[list[Viagem]] = relationship(back_populates="usuario")
+    viagens: Mapped[list[Viagem]] = relationship(
+        back_populates="usuario",
+        foreign_keys="Viagem.usuario_id",
+    )
     aprovacoes_realizadas: Mapped[list[Aprovacao]] = relationship(back_populates="aprovador")
     fechamentos_mensais: Mapped[list[FechamentoMensal]] = relationship(
         back_populates="motorista",
