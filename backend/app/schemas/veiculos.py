@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -30,6 +31,8 @@ class VeiculoResponse(BaseModel):
     crlv_arquivo_tamanho_bytes: int | None = None
     crlv_arquivo_atualizado_em: datetime | None = None
     crlv_download_url: str | None = None
+    ultimo_km: Decimal | None = None
+    km_limite_atipico: Decimal | None = None
 
 
 class VeiculoEmRotaResponse(BaseModel):

@@ -50,6 +50,9 @@ export interface Vehicle {
   crlv_arquivo_tamanho_bytes: number | null
   crlv_arquivo_atualizado_em: string | null
   crlv_download_url: string | null
+  /** Km final da ultima viagem concluida do veiculo (so na lista de partida). */
+  ultimo_km?: Numeric | null
+  km_limite_atipico?: Numeric | null
 }
 
 export interface VehicleInRoute {
@@ -97,6 +100,7 @@ export interface Trip {
   motivo_manual: string | null
   foto_hodometro_inicial: PhotoEvidence | null
   foto_hodometro_final: PhotoEvidence | null
+  km_limite_atipico?: Numeric | null
 }
 
 export interface TripManualCreatePayload {

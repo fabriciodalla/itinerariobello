@@ -3,6 +3,7 @@ import type { MouseEvent, PointerEvent, ReactNode } from 'react'
 import { AlertTriangle, ArrowLeft, CarFront, CheckCircle2, Gauge, Info, Loader2, LogOut, Send, X } from 'lucide-react'
 import { CameraCapture } from '../components/CameraCapture'
 import { GpsBadge } from '../components/GpsBadge'
+import { KM_LIMITE_ATIPICO_PADRAO, KmBlockedAlert, KmReviewAlert } from '../components/KmAlerts'
 import { StatusPill } from '../components/StatusPill'
 import { api, ApiError } from '../services/api'
 import type { GpsPayload, Trip, User, Vehicle } from '../types/domain'
@@ -135,15 +136,29 @@ function StartForm({
     onShowStatusChange(step === 'partida' && Boolean(selectedVehicle))
   }, [step, selectedVehicle, onShowStatusChange])
 
+  const [confirmKmAtipico, setConfirmKmAtipico] = useState(false)
+
   const kmInicialNumber = Number(kmInicial)
-  const hasValidKmInicial = kmInicial.trim() !== '' && Number.isFinite(kmInicialNumber) && kmInicialNumber >= 0
+  const kmInicialPreenchido = kmInicial.trim() !== '' && Number.isFinite(kmInicialNumber) && kmInicialNumber >= 0
+  const ultimoKm = selectedVehicle?.ultimo_km != null ? numberValue(selectedVehicle.ultimo_km) : null
+  const limiteKmAtipico = numberValue(selectedVehicle?.km_limite_atipico ?? KM_LIMITE_ATIPICO_PADRAO)
+  const kmAbaixoDoUltimo = kmInicialPreenchido && ultimoKm !== null && kmInicialNumber < ultimoKm
+  const kmAtipico = kmInicialPreenchido && ultimoKm !== null && kmInicialNumber - ultimoKm > limiteKmAtipico
+  const hasValidKmInicial = kmInicialPreenchido && !kmAbaixoDoUltimo
   const missingFields = [
     !selectedVehicleIdForSubmit ? 'veiculo' : '',
-    !hasValidKmInicial ? 'km inicial' : '',
+    !kmInicialPreenchido ? 'km inicial' : '',
+    kmAbaixoDoUltimo && ultimoKm !== null ? `km inicial maior ou igual a ${formatKm(ultimoKm)}` : '',
+    kmAtipico && !confirmKmAtipico ? 'confirmacao de que o km inicial foi revisado' : '',
     !photo ? 'foto' : '',
     !gps ? 'GPS' : '',
   ].filter(Boolean)
   const canSubmit = missingFields.length === 0
+
+  function changeKmInicial(value: string) {
+    setKmInicial(value)
+    setConfirmKmAtipico(false)
+  }
 
   async function submit() {
     if (!canSubmit || !photo || !gps) {
@@ -152,8 +167,9 @@ function StartForm({
     }
     setSaving(true)
     try {
-      await api.startTrip(token, selectedVehicleIdForSubmit, kmInicialNumber, gps, photo)
+      await api.startTrip(token, selectedVehicleIdForSubmit, kmInicialNumber, gps, photo, kmAtipico && confirmKmAtipico)
       setKmInicial('')
+      setConfirmKmAtipico(false)
       setPhoto(null)
       onMessage('Partida registrada.')
       await onChange()
@@ -262,7 +278,14 @@ function StartForm({
           title={`${selectedVehicle.placa} | ${selectedVehicle.modelo}`}
           subtitle={vehicleAvailabilityLabel(selectedVehicle)}
           trailing={
-            <button className="primary-button compact" type="button" onClick={() => setStep('selecionar')}>
+            <button
+              className="primary-button compact"
+              type="button"
+              onClick={() => {
+                setConfirmKmAtipico(false)
+                setStep('selecionar')
+              }}
+            >
               <ArrowLeft />
               <span>Trocar</span>
             </button>
@@ -274,11 +297,27 @@ function StartForm({
         <input
           inputMode="decimal"
           type="number"
-          min="0"
+          min={ultimoKm ?? 0}
           value={kmInicial}
-          onChange={(event) => setKmInicial(event.target.value)}
+          onChange={(event) => changeKmInicial(event.target.value)}
         />
+        {ultimoKm !== null ? (
+          <small className="form-hint">Ultimo km de chegada deste carro: {formatKm(ultimoKm)}</small>
+        ) : null}
       </label>
+      {kmAbaixoDoUltimo && ultimoKm !== null && selectedVehicle ? (
+        <KmBlockedAlert
+          title="Km inicial abaixo do ultimo registro"
+          message={`O km inicial deve ser maior ou igual a ${formatKm(ultimoKm)}, que e o ultimo registro de chegada do veiculo ${selectedVehicle.placa}. Confira o hodometro.`}
+        />
+      ) : null}
+      {kmAtipico && ultimoKm !== null ? (
+        <KmReviewAlert
+          message={`O km inicial informado (${formatKm(kmInicialNumber)}) esta ${formatKm(kmInicialNumber - ultimoKm)} acima do ultimo registro de chegada deste carro (${formatKm(ultimoKm)}). Verifique se nao digitou um numero a mais.`}
+          confirmed={confirmKmAtipico}
+          onConfirmedChange={setConfirmKmAtipico}
+        />
+      ) : null}
       <CameraCapture label="Foto inicial" file={photo} onFileChange={setPhoto} />
       <GpsBadge label="GPS de partida" token={token} onGpsChange={setGps} />
       <ReadinessChecklist
@@ -311,18 +350,15 @@ function ArrivalForm({
   onMessage: (message: string) => void
   onFinished: () => void
 }) {
-  const [kmFinal, setKmFinal] = useState('')
   const [rotaUtilizada, setRotaUtilizada] = useState('')
   const [photo, setPhoto] = useState<File | null>(null)
   const [gps, setGps] = useState<GpsPayload | null>(null)
   const [saving, setSaving] = useState(false)
   const vehicle = vehicles.find((item) => item.id === trip.veiculo_id)
   const vehicleLabel = tripVehicleLabel(trip, vehicle)
-  const kmFinalNumber = Number(kmFinal)
-  const kmInicial = numberValue(trip.km_inicial)
-  const hasValidKmFinal = kmFinal.trim() !== '' && Number.isFinite(kmFinalNumber) && kmFinalNumber >= kmInicial
+  const km = useKmFinal(trip)
   const missingFields = [
-    !hasValidKmFinal ? 'km final maior ou igual ao inicial' : '',
+    ...km.missingFields,
     !rotaUtilizada.trim() ? 'rota' : '',
     !photo ? 'foto' : '',
     !gps ? 'GPS' : '',
@@ -336,7 +372,16 @@ function ArrivalForm({
     }
     setSaving(true)
     try {
-      await api.finishTrip(token, trip.id, kmFinalNumber, rotaUtilizada.trim(), gps, photo)
+      await api.finishTrip(
+        token,
+        trip.id,
+        km.kmFinalNumber,
+        rotaUtilizada.trim(),
+        gps,
+        photo,
+        undefined,
+        km.confirmacaoEnviada,
+      )
       onMessage('Chegada registrada.')
       await onChange()
       onFinished()
@@ -371,16 +416,7 @@ function ArrivalForm({
           <StatusPill status={trip.status} />
         </div>
       </div>
-      <label>
-        <span>Km final</span>
-        <input
-          inputMode="decimal"
-          type="number"
-          min={kmInicial}
-          value={kmFinal}
-          onChange={(event) => setKmFinal(event.target.value)}
-        />
-      </label>
+      <KmFinalField km={km} />
       <label>
         <span>Rota utilizada</span>
         <textarea rows={4} value={rotaUtilizada} onChange={(event) => setRotaUtilizada(event.target.value)} />
@@ -389,7 +425,7 @@ function ArrivalForm({
       <GpsBadge label="GPS de chegada" token={token} onGpsChange={setGps} />
       <ReadinessChecklist
         items={[
-          { label: 'Km final', done: hasValidKmFinal },
+          { label: 'Km final', done: km.hasValidKmFinal },
           { label: 'Rota', done: Boolean(rotaUtilizada.trim()) },
           { label: 'Foto', done: Boolean(photo) },
           { label: 'GPS', done: Boolean(gps) },
@@ -422,7 +458,6 @@ function LateClosureForm({
   onLogout: () => void
   onCloseApp: () => void
 }) {
-  const [kmFinal, setKmFinal] = useState('')
   const [rotaUtilizada, setRotaUtilizada] = useState('')
   const [motivo, setMotivo] = useState('')
   const [photo, setPhoto] = useState<File | null>(null)
@@ -430,11 +465,9 @@ function LateClosureForm({
   const [saving, setSaving] = useState(false)
   const vehicle = vehicles.find((item) => item.id === trip.veiculo_id)
   const vehicleLabel = tripVehicleLabel(trip, vehicle)
-  const kmFinalNumber = Number(kmFinal)
-  const kmInicial = numberValue(trip.km_inicial)
-  const hasValidKmFinal = kmFinal.trim() !== '' && Number.isFinite(kmFinalNumber) && kmFinalNumber >= kmInicial
+  const km = useKmFinal(trip)
   const missingFields = [
-    !hasValidKmFinal ? 'km final maior ou igual ao inicial' : '',
+    ...km.missingFields,
     !rotaUtilizada.trim() ? 'rota' : '',
     !photo ? 'foto' : '',
     !gps ? 'GPS' : '',
@@ -449,7 +482,16 @@ function LateClosureForm({
     }
     setSaving(true)
     try {
-      await api.finishTrip(token, trip.id, kmFinalNumber, rotaUtilizada.trim(), gps, photo, motivo.trim())
+      await api.finishTrip(
+        token,
+        trip.id,
+        km.kmFinalNumber,
+        rotaUtilizada.trim(),
+        gps,
+        photo,
+        motivo.trim(),
+        km.confirmacaoEnviada,
+      )
       onMessage('Viagem atrasada finalizada e sinalizada ao seu superior.')
       await onChange()
       onFinished()
@@ -494,16 +536,7 @@ function LateClosureForm({
           <StatusPill status={trip.status} />
         </div>
       </div>
-      <label>
-        <span>Km final</span>
-        <input
-          inputMode="decimal"
-          type="number"
-          min={kmInicial}
-          value={kmFinal}
-          onChange={(event) => setKmFinal(event.target.value)}
-        />
-      </label>
+      <KmFinalField km={km} />
       <label>
         <span>Rota utilizada</span>
         <textarea rows={4} value={rotaUtilizada} onChange={(event) => setRotaUtilizada(event.target.value)} />
@@ -521,7 +554,7 @@ function LateClosureForm({
       </label>
       <ReadinessChecklist
         items={[
-          { label: 'Km final', done: hasValidKmFinal },
+          { label: 'Km final', done: km.hasValidKmFinal },
           { label: 'Rota', done: Boolean(rotaUtilizada.trim()) },
           { label: 'Foto', done: Boolean(photo) },
           { label: 'GPS', done: Boolean(gps) },
@@ -541,6 +574,71 @@ function LateClosureForm({
         <span>Sair da conta</span>
       </button>
     </section>
+  )
+}
+
+/** Estado e validacoes do km final (chegada normal e fechamento tardio):
+ * km final >= km inicial e confirmacao obrigatoria quando a distancia da
+ * viagem passa do limite de km atipico (RN-043). */
+function useKmFinal(trip: Trip) {
+  const [kmFinal, setKmFinalValue] = useState('')
+  const [confirmed, setConfirmed] = useState(false)
+  const kmInicial = numberValue(trip.km_inicial)
+  const limite = numberValue(trip.km_limite_atipico ?? KM_LIMITE_ATIPICO_PADRAO)
+  const kmFinalNumber = Number(kmFinal)
+  const preenchido = kmFinal.trim() !== '' && Number.isFinite(kmFinalNumber)
+  const abaixoDoInicial = preenchido && kmFinalNumber < kmInicial
+  const atipico = preenchido && !abaixoDoInicial && kmFinalNumber - kmInicial > limite
+  const hasValidKmFinal = preenchido && !abaixoDoInicial
+
+  return {
+    kmFinal,
+    setKmFinal(value: string) {
+      setKmFinalValue(value)
+      setConfirmed(false)
+    },
+    kmInicial,
+    kmFinalNumber,
+    abaixoDoInicial,
+    atipico,
+    confirmed,
+    setConfirmed,
+    hasValidKmFinal,
+    confirmacaoEnviada: atipico && confirmed,
+    missingFields: [
+      !hasValidKmFinal ? `km final maior ou igual a ${formatKm(kmInicial)}` : '',
+      atipico && !confirmed ? 'confirmacao de que o km final foi revisado' : '',
+    ],
+  }
+}
+
+function KmFinalField({ km }: { km: ReturnType<typeof useKmFinal> }) {
+  return (
+    <>
+      <label>
+        <span>Km final</span>
+        <input
+          inputMode="decimal"
+          type="number"
+          min={km.kmInicial}
+          value={km.kmFinal}
+          onChange={(event) => km.setKmFinal(event.target.value)}
+        />
+      </label>
+      {km.abaixoDoInicial ? (
+        <KmBlockedAlert
+          title="Km final abaixo do km inicial"
+          message={`O km final deve ser maior ou igual ao km inicial desta viagem (${formatKm(km.kmInicial)}).`}
+        />
+      ) : null}
+      {km.atipico ? (
+        <KmReviewAlert
+          message={`Com o km final informado (${formatKm(km.kmFinalNumber)}) esta viagem teria ${formatKm(km.kmFinalNumber - km.kmInicial)} rodados a partir do km inicial ${formatKm(km.kmInicial)}. Verifique se nao digitou um numero a mais.`}
+          confirmed={km.confirmed}
+          onConfirmedChange={km.setConfirmed}
+        />
+      ) : null}
+    </>
   )
 }
 

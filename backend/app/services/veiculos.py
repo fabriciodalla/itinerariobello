@@ -172,6 +172,30 @@ def marcar_como_principal(db: Session, veiculo: Veiculo) -> None:
     veiculo.principal = True
 
 
+def veiculo_tem_viagem_sobreposta(
+    db: Session,
+    veiculo_id: UUID,
+    inicio: datetime,
+    fim: datetime,
+    excluir_viagem_id: UUID,
+) -> bool:
+    """Indica se o veiculo ja possui outra viagem cujo periodo [partida,
+    chegada] cruza o intervalo informado. Viagem em andamento (sem chegada)
+    e tratada como ainda ocupando o veiculo. Usado na troca de veiculo de uma
+    viagem concluida pelo administrador (RN-040)."""
+    return (
+        db.scalar(
+            select(Viagem.id)
+            .where(Viagem.veiculo_id == veiculo_id)
+            .where(Viagem.id != excluir_viagem_id)
+            .where(Viagem.partida_em < fim)
+            .where(or_(Viagem.chegada_em.is_(None), Viagem.chegada_em > inicio))
+            .limit(1)
+        )
+        is not None
+    )
+
+
 def listar_veiculos_em_rota(db: Session) -> list[Viagem]:
     query = (
         select(Viagem)

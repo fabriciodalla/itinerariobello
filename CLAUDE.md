@@ -181,6 +181,7 @@ Definir em `.env` (copiar de `.env.example`):
 | `CORS_ORIGINS` | Origins permitidas, separadas por vírgula | sim |
 | `APP_ENV` | `local` / `production` | não |
 | `REVERSE_GEOCODING_ENABLED` | `false` por padrão | não |
+| `KM_LIMITE_ATIPICO` | Km de salto/distância que exige confirmação do motorista. Padrão: `1000` | não |
 | `FRONTEND_BASE_URL` | URL pública usada nos links de recuperação de senha | sim |
 | `SMTP_HOST` | Servidor SMTP para recuperação de senha | sim |
 | `SMTP_FROM_EMAIL` | Remetente dos e-mails de recuperação | sim |

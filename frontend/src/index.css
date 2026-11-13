@@ -1033,6 +1033,31 @@ textarea:focus {
   color: var(--warning);
 }
 
+.info-card.danger {
+  background: var(--danger-soft);
+}
+
+.info-card.danger svg,
+.info-card.danger strong {
+  color: var(--danger);
+}
+
+.km-review-card {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.km-review-card > div:first-child {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.km-review-card .checkbox-row {
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .gradient-button {
   min-height: 58px;
   border-radius: 16px;

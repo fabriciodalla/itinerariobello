@@ -18,6 +18,7 @@ from app.models.veiculo import Veiculo
 from app.models.viagem import Viagem
 from app.schemas.veiculos import VeiculoCreateRequest, VeiculoEmRotaResponse, VeiculoPatchRequest, VeiculoResponse
 from app.services.documents import apolice_subdir, crlv_subdir, delete_document_if_exists, save_document
+from app.services.quilometragem import limite_km_atipico, ultimo_km_chegada
 from app.services.veiculos import (
     data_referencia_atual,
     listar_veiculos_disponiveis_para_partida,
@@ -91,7 +92,15 @@ def list_vehicles(
 ) -> list[VeiculoResponse]:
     hoje = data_referencia_atual()
     veiculos = listar_veiculos_disponiveis_para_partida(db, usuario.id, hoje)
-    return [to_response(veiculo, usuario.id) for veiculo in veiculos]
+    limite = limite_km_atipico()
+    respostas: list[VeiculoResponse] = []
+    for veiculo in veiculos:
+        resposta = to_response(veiculo, usuario.id)
+        # Usados pela tela de partida para avisar antes do envio (RN-041, RN-042).
+        resposta.ultimo_km = ultimo_km_chegada(db, veiculo.id)
+        resposta.km_limite_atipico = limite
+        respostas.append(resposta)
+    return respostas
 
 
 @router.get("/in-route", response_model=list[VeiculoEmRotaResponse])

@@ -262,7 +262,14 @@ export const api = {
   tripPhotos(token: string, tripId: string) {
     return request<PhotoEvidence[]>(`/trips/${tripId}/photos`, { token })
   },
-  startTrip(token: string, veiculoId: string, kmInicial: number, gps: GpsPayload, foto: File) {
+  startTrip(
+    token: string,
+    veiculoId: string,
+    kmInicial: number,
+    gps: GpsPayload,
+    foto: File,
+    confirmarKmAtipico = false,
+  ) {
     return request<Trip>('/trips/start', {
       method: 'POST',
       token,
@@ -271,6 +278,7 @@ export const api = {
           veiculo_id: veiculoId,
           km_inicial: kmInicial,
           gps,
+          confirmar_km_atipico: confirmarKmAtipico,
         },
         foto,
       ),
@@ -284,6 +292,7 @@ export const api = {
     gps: GpsPayload,
     foto: File,
     motivoFechamentoTardio?: string,
+    confirmarKmAtipico = false,
   ) {
     return request<Trip>(`/trips/${tripId}/finish`, {
       method: 'POST',
@@ -294,12 +303,17 @@ export const api = {
           rota_utilizada: rotaUtilizada,
           gps,
           motivo_fechamento_tardio: motivoFechamentoTardio || undefined,
+          confirmar_km_atipico: confirmarKmAtipico,
         },
         foto,
       ),
     })
   },
-  patchTrip(token: string, tripId: string, data: { km_inicial?: number; km_final?: number; rota_utilizada?: string }) {
+  patchTrip(
+    token: string,
+    tripId: string,
+    data: { km_inicial?: number; km_final?: number; rota_utilizada?: string; veiculo_id?: string },
+  ) {
     return request<Trip>(`/trips/${tripId}`, {
       method: 'PATCH',
       token,

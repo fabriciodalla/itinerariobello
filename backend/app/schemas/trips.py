@@ -35,6 +35,7 @@ class TripStartPayload(BaseModel):
     veiculo_id: UUID
     km_inicial: Decimal = Field(ge=0)
     gps: GPSPayload
+    confirmar_km_atipico: bool = False
 
 
 class TripFinishPayload(BaseModel):
@@ -42,6 +43,7 @@ class TripFinishPayload(BaseModel):
     rota_utilizada: str = Field(min_length=1)
     gps: GPSPayload
     motivo_fechamento_tardio: str | None = Field(default=None, max_length=2000)
+    confirmar_km_atipico: bool = False
 
     @field_validator("motivo_fechamento_tardio")
     @classmethod
@@ -83,6 +85,7 @@ class TripPatchPayload(BaseModel):
     rota_utilizada: str | None = None
     km_inicial: Decimal | None = Field(default=None, ge=0)
     km_final: Decimal | None = Field(default=None, ge=0)
+    veiculo_id: UUID | None = None
 
 
 class MonthlyClosureClosePayload(BaseModel):
@@ -127,6 +130,7 @@ class TripResponse(BaseModel):
     motivo_manual: str | None = None
     foto_hodometro_inicial: ReportPhotoEvidenceResponse | None = None
     foto_hodometro_final: ReportPhotoEvidenceResponse | None = None
+    km_limite_atipico: Decimal | None = None
 
 
 class GPSResponse(BaseModel):

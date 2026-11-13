@@ -170,6 +170,8 @@ Registrar início da viagem com km inicial, foto do hodômetro e GPS.
 ### Critérios De Aceite
 
 - Bloqueia envio sem km inicial.
+- Exibe o último km de chegada do carro selecionado e bloqueia envio com km inicial abaixo dele, informando esse valor (RN-041).
+- Quando o km inicial passa o último km de chegada em mais que o limite de km atípico (padrão 1000 km), exibe aviso para revisar o valor e só libera o envio após o motorista marcar que revisou o hodômetro (RN-042).
 - Bloqueia envio sem foto do hodômetro.
 - Bloqueia envio sem GPS.
 - Mantém latitude e longitude como dados obrigatórios; endereço não bloqueia a partida quando indisponível.
@@ -244,6 +246,7 @@ Registrar fim da viagem com km final, foto do hodômetro, GPS e rota utilizada.
 - Bloqueia envio sem GPS.
 - Mantém latitude e longitude como dados obrigatórios; endereço não bloqueia a chegada quando indisponível.
 - Bloqueia envio se km final for menor que km inicial.
+- Quando a distância da viagem passa do limite de km atípico, exibe aviso para revisar o valor e só libera o envio após o motorista marcar que revisou o hodômetro (RN-043). Vale também para o fechamento tardio.
 - Bloqueia envio sem rota utilizada.
 - Altera status para `concluida`, indicando viagem pronta para fechamento mensal.
 
@@ -283,6 +286,7 @@ Permitir correções antes do fechamento mensal fechado.
 
 - Permite edição apenas enquanto o fechamento mensal estiver `aberto`.
 - Não permite editar viagem em fechamento mensal `fechado`.
+- Para administrador, a edição de viagem concluída na tela de fechamento mensal inclui a troca do veículo (RN-040).
 - Mantém validações de foto, GPS e km.
 - Registra data e usuário da alteração.
 

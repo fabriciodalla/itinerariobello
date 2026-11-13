@@ -115,7 +115,11 @@ def test_partida_permitida_apos_resolver_viagem_atrasada(
     )
     assert finish_response.status_code in {200, 201}, finish_response.text
 
-    response = post_trip_start(api_client, motorista_auth_headers, start_payload(test_vehicle_id))
+    # Nova partida no mesmo carro parte do km de chegada anterior (RN-041).
+    km_chegada = finish_response.json()["km_final"]
+    response = post_trip_start(
+        api_client, motorista_auth_headers, start_payload(test_vehicle_id, km_inicial=float(km_chegada))
+    )
 
     assert response.status_code == 201, response.text
 

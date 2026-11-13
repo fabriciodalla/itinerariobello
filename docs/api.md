@@ -201,12 +201,24 @@ Campos principais de veículo:
 | `POST` | `/trips/start` | Registrar partida | Motorista |
 | `POST` | `/trips/{id}/finish` | Registrar chegada | Motorista |
 | `GET` | `/trips/{id}` | Detalhar viagem | Motorista |
-| `PATCH` | `/trips/{id}` | Editar dados permitidos antes do fechamento fechado | Motorista |
+| `PATCH` | `/trips/{id}` | Editar km/rota de viagem concluída antes do fechamento fechado; trocar veículo (somente admin, RN-040) | Superior imediato / Admin |
 | `POST` | `/trips/{id}/submit` | Enviar ou reenviar viagem completa para o fechamento mensal | Motorista |
 | `GET` | `/trips/{id}/gps` | Listar coordenadas GPS da viagem | Motorista |
 | `POST` | `/trips/manual` | Lançar viagem manualmente em nome de um motorista (RF-023, RN-036 a RN-039) | Admin |
 
 Partida, chegada e reenvio são ações operacionais exclusivas de usuários com perfil `motorista`. Administrador e responsável pelo fechamento fora do perfil `motorista` recebem `403` nesses endpoints; administradores continuam podendo consultar a base pelos relatórios conforme permissão. A única exceção é `POST /trips/manual`, exclusiva de administrador.
+
+### 7.0 Validações De Km Na Partida E Na Chegada
+
+`POST /trips/start` e `POST /trips/{id}/finish` aceitam no `payload` o campo opcional `confirmar_km_atipico` (booleano, padrão `false`).
+
+- Partida com `km_inicial` menor que o último km de chegada do veículo retorna `422` com a mensagem `Km inicial deve ser maior ou igual a X km, ultimo km de chegada registrado para o veiculo PLACA.` (RN-041).
+- Partida com salto acima de `KM_LIMITE_ATIPICO` sobre o último km de chegada, ou chegada com distância acima desse limite, retorna `422` pedindo revisão, a menos que `confirmar_km_atipico = true` (RN-042, RN-043).
+- `GET /vehicles` (lista de partida) inclui `ultimo_km` (número ou nulo) e `km_limite_atipico` em cada veículo; `TripResponse` inclui `km_limite_atipico`, para o app avisar antes do envio.
+
+### 7.0.1 Edição De Viagem Concluída
+
+`PATCH /trips/{id}` aceita `km_inicial`, `km_final`, `rota_utilizada` e `veiculo_id`, todos opcionais. Só vale para viagem `concluida` com fechamento mensal `aberto` (`409` caso contrário). `km_rodado` é recalculado sempre que algum km muda. `veiculo_id` é exclusivo de administrador (`403` para superior) e retorna `409` se o novo veículo tiver outra viagem no mesmo período (RN-040).
 
 ### 7.1 Contrato Para Lançamento Manual
 

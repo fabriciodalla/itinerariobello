@@ -48,10 +48,16 @@ from app.schemas.trips import (
 )
 from app.services.geocoding import normalizar_endereco, reverse_geocode
 from app.services.photos import save_trip_photo
+from app.services.quilometragem import (
+    limite_km_atipico,
+    validar_km_inicial_partida,
+    validar_km_rodado_chegada,
+)
 from app.services.veiculos import (
     data_local,
     data_referencia_atual,
     listar_veiculos_disponiveis_para_partida,
+    veiculo_tem_viagem_sobreposta,
 )
 
 router = APIRouter(prefix="/trips", tags=["trips"])
@@ -346,6 +352,7 @@ def trip_response(db: Session, viagem: Viagem) -> TripResponse:
         motivo_manual=viagem.motivo_manual,
         foto_hodometro_inicial=report_photo_evidence(photos_by_type.get(TipoFotoHodometro.inicial)),
         foto_hodometro_final=report_photo_evidence(photos_by_type.get(TipoFotoHodometro.final)),
+        km_limite_atipico=limite_km_atipico(),
     )
 
 
@@ -384,6 +391,7 @@ def start_trip(
     veiculo = next((item for item in veiculos_permitidos if item.id == data.veiculo_id), None)
     if veiculo is None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Veiculo indisponivel para partida.")
+    validar_km_inicial_partida(db, veiculo.id, veiculo.placa, data.km_inicial, data.confirmar_km_atipico)
 
     viagem = Viagem(
         usuario_id=usuario.id,
@@ -435,6 +443,7 @@ def finish_trip(
         raise validation_error("Rota utilizada e obrigatoria.")
     if data.km_final < viagem.km_inicial:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Km final nao pode ser menor que km inicial.")
+    validar_km_rodado_chegada(viagem.km_inicial, data.km_final, data.confirmar_km_atipico)
 
     chegada_em = datetime.now(timezone.utc)
     fechamento_tardio = data_local(chegada_em) != data_local(viagem.partida_em)
@@ -464,6 +473,27 @@ def ensure_can_edit_concluded_trip(viagem: Viagem, usuario: Usuario) -> None:
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Somente o superior pode editar esta viagem.")
 
 
+def change_trip_vehicle(db: Session, viagem: Viagem, novo_veiculo_id: UUID, usuario: Usuario) -> None:
+    """Troca do veiculo de uma viagem concluida (RN-040): corrige o caso do
+    motorista que selecionou o carro errado na partida. Exclusivo do
+    administrador; fechamento mensal aberto e status concluida ja sao
+    validados por quem chama."""
+    if usuario.perfil != PerfilUsuario.admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Somente administrador pode trocar o veiculo da viagem.",
+        )
+    novo_veiculo = get_vehicle_or_404(db, novo_veiculo_id)
+    chegada = viagem.chegada_em or datetime.now(timezone.utc)
+    if veiculo_tem_viagem_sobreposta(db, novo_veiculo.id, viagem.partida_em, chegada, viagem.id):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Veiculo {novo_veiculo.placa} ja possui viagem registrada no mesmo horario desta viagem.",
+        )
+    viagem.veiculo_id = novo_veiculo.id
+    viagem.veiculo = novo_veiculo
+
+
 @router.patch("/{viagem_id}", response_model=TripResponse)
 def patch_trip(
     viagem_id: UUID,
@@ -480,19 +510,22 @@ def patch_trip(
     ensure_monthly_closure_open(db, viagem)
     ensure_can_edit_concluded_trip(viagem, usuario)
 
+    if payload.veiculo_id is not None and payload.veiculo_id != viagem.veiculo_id:
+        change_trip_vehicle(db, viagem, payload.veiculo_id, usuario)
+
     if payload.rota_utilizada is not None:
         rota = payload.rota_utilizada.strip()
         if not rota:
             raise validation_error("Rota utilizada nao pode ficar em branco.")
         viagem.rota_utilizada = rota
-    if payload.km_inicial is not None:
-        viagem.km_inicial = payload.km_inicial
-    if payload.km_final is not None:
-        km_inicial_referencia = payload.km_inicial if payload.km_inicial is not None else viagem.km_inicial
-        if payload.km_final < km_inicial_referencia:
+    if payload.km_inicial is not None or payload.km_final is not None:
+        km_inicial = payload.km_inicial if payload.km_inicial is not None else viagem.km_inicial
+        km_final = payload.km_final if payload.km_final is not None else viagem.km_final
+        if km_final is not None and km_final < km_inicial:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Km final nao pode ser menor que km inicial.")
-        viagem.km_final = payload.km_final
-        viagem.km_rodado = payload.km_final - viagem.km_inicial
+        viagem.km_inicial = km_inicial
+        viagem.km_final = km_final
+        viagem.km_rodado = km_final - km_inicial if km_final is not None else None
 
     db.commit()
     db.refresh(viagem)

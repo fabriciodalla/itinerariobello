@@ -29,6 +29,7 @@ interface MonthlyClosureScreenProps {
 }
 
 interface TripEditState {
+  veiculoId: string
   kmInicial: string
   kmFinal: string
   rotaUtilizada: string
@@ -86,6 +87,8 @@ export function MonthlyClosureScreen({ token, user, onMessage }: MonthlyClosureS
   const canEditTrips = user.pode_aprovar || user.perfil === 'admin'
   const canReportByVehicle = user.perfil === 'admin'
   const canLaunchManualTrip = user.perfil === 'admin'
+  // Troca de veiculo de viagem concluida e exclusiva do administrador (RN-040).
+  const canChangeTripVehicle = user.perfil === 'admin'
   const isVehicleMode = reportMode === 'veiculo'
 
   const usersById = useMemo(() => {
@@ -245,6 +248,7 @@ export function MonthlyClosureScreen({ token, user, onMessage }: MonthlyClosureS
   function startEdit(item: ReportItem) {
     setEditingTripId(item.id)
     setEditState({
+      veiculoId: item.veiculo_id,
       kmInicial: String(item.km_inicial ?? ''),
       kmFinal: String(item.km_final ?? ''),
       rotaUtilizada: item.rota_utilizada ?? '',
@@ -272,7 +276,17 @@ export function MonthlyClosureScreen({ token, user, onMessage }: MonthlyClosureS
       const kmInicial = editState.kmInicial !== '' ? Number(editState.kmInicial) : undefined
       const kmFinal = editState.kmFinal !== '' ? Number(editState.kmFinal) : undefined
       const rotaUtilizada = editState.rotaUtilizada.trim() || undefined
-      await api.patchTrip(token, tripId, { km_inicial: kmInicial, km_final: kmFinal, rota_utilizada: rotaUtilizada })
+      const original = reports.find((item) => item.id === tripId)
+      const veiculoId =
+        canChangeTripVehicle && editState.veiculoId && editState.veiculoId !== original?.veiculo_id
+          ? editState.veiculoId
+          : undefined
+      await api.patchTrip(token, tripId, {
+        km_inicial: kmInicial,
+        km_final: kmFinal,
+        rota_utilizada: rotaUtilizada,
+        veiculo_id: veiculoId,
+      })
       onMessage('Viagem atualizada.')
       setEditingTripId(null)
       setEditState(null)
@@ -487,6 +501,7 @@ export function MonthlyClosureScreen({ token, user, onMessage }: MonthlyClosureS
             item={item}
             isVehicleMode={isVehicleMode}
             canEditTrips={canEditTrips}
+            vehicleOptions={canChangeTripVehicle ? vehicles : null}
             isEditing={editingTripId === item.id}
             editState={editingTripId === item.id ? editState : null}
             onStartEdit={() => startEdit(item)}
@@ -627,6 +642,7 @@ function TripReportCard({
   item,
   isVehicleMode,
   canEditTrips,
+  vehicleOptions,
   isEditing,
   editState,
   onStartEdit,
@@ -638,6 +654,7 @@ function TripReportCard({
   item: ReportItem
   isVehicleMode: boolean
   canEditTrips: boolean
+  vehicleOptions: Vehicle[] | null
   isEditing: boolean
   editState: TripEditState | null
   onStartEdit: () => void
@@ -696,6 +713,33 @@ function TripReportCard({
           {isEditing && editState ? (
             <div className="trip-edit-form">
               <div className="trip-edit-fields">
+                {vehicleOptions ? (
+                  <label className="trip-edit-rota">
+                    <span>Veiculo</span>
+                    <select
+                      value={editState.veiculoId}
+                      onChange={(e) => onEditStateChange((prev) => prev && { ...prev, veiculoId: e.target.value })}
+                    >
+                      {vehicleOptions.some((vehicle) => vehicle.id === item.veiculo_id) ? null : (
+                        <option value={item.veiculo_id}>
+                          {item.veiculo_placa} | {item.veiculo_modelo}
+                        </option>
+                      )}
+                      {vehicleOptions
+                        .filter((vehicle) => vehicle.ativo || vehicle.id === item.veiculo_id)
+                        .map((vehicle) => (
+                          <option key={vehicle.id} value={vehicle.id}>
+                            {vehicle.placa} | {vehicle.modelo}
+                          </option>
+                        ))}
+                    </select>
+                    {editState.veiculoId !== item.veiculo_id ? (
+                      <small className="form-hint">
+                        O veiculo desta viagem sera trocado ao salvar. Confira tambem os km inicial e final.
+                      </small>
+                    ) : null}
+                  </label>
+                ) : null}
                 <label>
                   <span>Km inicial</span>
                   <input

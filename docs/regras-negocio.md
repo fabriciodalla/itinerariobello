@@ -66,6 +66,10 @@ O fechamento mensal é sempre por motorista individual, considerando as viagens 
 | RN-037 | Lançamento manual exige motivo obrigatório (`motivo_manual`); a viagem fica marcada com `origem_registro = manual` e exibe o motivo no relatório mensal, na exportação e no PDF | Backend e app |
 | RN-038 | Viagem manual continua sujeita à regra de veículo em uso no dia local (RN-018), avaliada na data informada para a viagem, não necessariamente no dia atual | Backend |
 | RN-039 | Viagem manual não pode ser lançada quando o fechamento mensal do motorista naquele período já estiver `fechado` (mesma trava de RN-013) | Backend |
+| RN-040 | Somente administrador pode trocar o veículo de uma viagem `concluida` (`PATCH /trips/{id}` com `veiculo_id`), enquanto o fechamento mensal do motorista estiver `aberto`; a troca é recusada (`409`) se o novo veículo tiver outra viagem cujo período cruze o da viagem editada. Superior com `pode_aprovar` continua editando km e rota, mas recebe `403` ao tentar trocar o veículo | Backend e app |
+| RN-041 | Na partida, `km_inicial` não pode ser menor que o `km_final` da viagem concluída mais recente do mesmo veículo (pela chegada); igual é permitido. Violação retorna `422` informando o último km de chegada do veículo. Veículo sem viagem concluída não tem trava. Lançamento manual (RN-036) não aplica esta regra | Backend e app |
+| RN-042 | Na partida, se `km_inicial` superar o último km de chegada do veículo em mais que `KM_LIMITE_ATIPICO` (padrão 1000 km), a partida só é aceita com `confirmar_km_atipico = true`; sem a confirmação o backend retorna `422` pedindo revisão do valor | Backend e app |
+| RN-043 | Na chegada, se `km_final - km_inicial` superar `KM_LIMITE_ATIPICO`, a chegada só é aceita com `confirmar_km_atipico = true`; sem a confirmação o backend retorna `422` pedindo revisão do valor | Backend e app |
 
 ## 4. Fluxo De Validação Da Partida
 
@@ -77,7 +81,8 @@ O fechamento mensal é sempre por motorista individual, considerando as viagens 
 6. Backend valida dados obrigatórios.
 7. Backend valida se o motorista não tem viagem `em_andamento` pendente de fechamento tardio (RN-034); se tiver, rejeita a partida com conflito até que ela seja finalizada.
 8. Backend valida se o veículo selecionado é permitido para o usuário e se não há itinerário iniciado no dia para o veículo.
-9. Backend cria viagem com status `em_andamento`.
+9. Backend valida o km inicial contra o último km de chegada do veículo (RN-041) e exige confirmação de km atípico quando o salto passar do limite (RN-042).
+10. Backend cria viagem com status `em_andamento`.
 
 ## 5. Fluxo De Validação Da Chegada
 
@@ -87,7 +92,7 @@ O fechamento mensal é sempre por motorista individual, considerando as viagens 
 4. App captura latitude e longitude.
 5. App ou backend resolve endereço aproximado quando houver serviço disponível.
 6. Usuário informa rota utilizada.
-7. Backend valida km final maior ou igual ao km inicial.
+7. Backend valida km final maior ou igual ao km inicial e exige confirmação de km atípico quando a distância passar do limite (RN-043).
 8. Backend verifica se a data local da chegada é diferente da data local da partida (RN-035); se for, exige motivo do fechamento tardio e o grava na viagem.
 9. Backend altera status para `concluida`, indicando que a viagem está pronta para o fechamento mensal.
 
@@ -100,6 +105,7 @@ O fechamento mensal é sempre por motorista individual, considerando as viagens 
 5. Backend registra responsável, data/hora, status `fechado` e observação quando informada.
 6. As viagens do período permanecem com status `concluida`.
 7. Correções só são permitidas enquanto o fechamento mensal estiver `aberto`.
+8. Quando o motorista tiver selecionado o carro errado, o administrador troca o veículo da viagem concluída na edição da viagem (RN-040) e confere os km inicial/final.
 
 ## 6.1 Fluxo De Consulta De Veículos Em Rota
 

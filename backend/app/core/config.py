@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     cookie_secure: bool = Field(default=False, alias="COOKIE_SECURE")
     cookie_domain: str | None = Field(default=None, alias="COOKIE_DOMAIN")
     app_timezone: str = Field(default="America/Cuiaba", alias="APP_TIMEZONE")
+    km_limite_atipico: float = Field(default=1000, gt=0, alias="KM_LIMITE_ATIPICO")
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
